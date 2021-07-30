@@ -1,7 +1,7 @@
 # NWebtoon_Downloader
 
 ![image](https://user-images.githubusercontent.com/31213158/127667222-1ccf1ce8-ef4a-4875-9379-902cd8340e60.png)
-네이버 웹툰 초고속 다운로더 입니다.
+네이버 웹툰 초고속 다운로더 입니다.  
 https://pgh268400.tistory.com/216
 
 # 지원 기능
