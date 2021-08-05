@@ -1,9 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[ ]:
-
-
 # -*- coding: utf-8 -*-
 import requests
 import os, errno, glob
@@ -16,6 +10,9 @@ from PIL import Image
 from sys import exit
 from datetime import datetime
 from time import sleep
+from urllib import parse
+
+
 download_index = 1
 NID_AUT = ''
 NID_SES = ''
@@ -36,17 +33,10 @@ def filename_remover(string):
                         string = string.replace(str_, "")
         return string
 
-
-# In[ ]:
-
-
 def tag_remover(string):
         cleaner = re.compile('<.*?>|&([a-z0-9]+|#[0-9]{1,6}|#x[0-9a-f]{1,6});') #<tag>, &nbfs 등등 제거
         string = re.sub(cleaner, '', string)
         return string
-
-
-# In[ ]:
 
 
 def image_download(url, file_name):
@@ -54,9 +44,6 @@ def image_download(url, file_name):
         headers = {'User-Agent' : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.119 Safari/537.36', 'host' : 'image-comic.pstatic.net'}
         response = get(url,headers = headers)               # get request
         file.write(response.content)      # write to file
-
-
-# In[ ]:
 
 
 # 단일 이미지 다운로드
@@ -79,14 +66,15 @@ def single_download(id, args, type_):
         j=0
         for img in image_url:
                 url = img['src']
-                _path = path + "\\" + str(j) + '.png'
+
+                parsed = parse.urlparse(url)
+                name, ext = os.path.splitext(parsed.path)
+
+                _path = path + "\\" + str(j) + ext
                 image_download(url, _path)
                 j += 1
                 print(url)
         input('다운로드가 완료되었습니다.')
-
-
-# In[ ]:
 
 
 # 이미지 링크 추출(경로 포함)
@@ -115,16 +103,16 @@ def get_image_link(id, args, type_):
                 j=0
                 for img in image_url:
                         url = img['src']
-                        _path = path + "\\" + str(j) + '.png'
+
+                        parsed = parse.urlparse(url)
+                        name, ext = os.path.splitext(parsed.path)
+                        _path = path + "\\" + str(j) + ext
+
                         if not 'img-ctguide-white.png' in url: #컷툰이미지 제거하기
                                 result.append([url,tag_remover(_path)]) #URL,PATH 형식으로 List에 저장
                         j += 1
                 download_index = download_index + 1
         return result
-
-
-# In[ ]:
-
 
 #다중 이미지 다운로드
 def p_image_download(data):
@@ -152,10 +140,6 @@ def p_image_download(data):
                     file.close()
                     
             break
-
-
-# In[ ]:
-
 
 class nwebtoon:
     def __init__(self, query):
@@ -209,9 +193,6 @@ class nwebtoon:
             index = int(input('선택할 웹툰의 번호를 입력해주세요 : '))
             title_id = str(list[index][1])
             return title_id
-
-
-# In[ ]:
 
 
 dialog = input('모드를 선택해주세요 d : 다운로드 , m : 이미지합치기 : ')
