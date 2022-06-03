@@ -16,8 +16,16 @@ download_index = 1
 NID_AUT = ''
 NID_SES = ''
 
-class nwebtoon:
+
+class NWebtoon:
     def __init__(self, query):
+        """
+        검색어를 주고 객체를 생성하면 이 생성자에서 처리를 합니다.
+        알아서 검색창을 띄어주고 사용자가 선택한 웹툰에 따라
+        웹툰 객체가 웹툰의 정보를 가질 수 있게 합니다.
+        :param query: 검색어
+        """
+        # 생성자에서 파이썬 인스턴스 변수 초기화
         exp = '[0-9]{5,6}'
         if 'titleId=' in query:  # 입력값에 titleid가 존재하면
             id_pattern = re.search(exp, query)
@@ -34,7 +42,10 @@ class nwebtoon:
 
         req = requests.get("https://comic.naver.com/webtoon/list.nhn?titleId=" + self.__title_id)
         soup = BeautifulSoup(req.content, 'html.parser')
-        # title = 제목, num = 총화수, content = 웹툰 설명, type = 웹툰 타입
+
+        # title = 제목, num = 총화수, content = 웹툰 설명, type = 웹툰 타입, isadult = 성인웹툰 유무
+        # 파이썬의 private 키워드 __ 를 통해 캡슐화를 구현하도록 하자.
+
         self.__title = soup.find("meta", property="og:title")["content"]  # 타이틀 가져오기
         self.__content = soup.find("meta", property="og:description")['content']  # 컨텐츠 가져오기
 
@@ -50,33 +61,8 @@ class nwebtoon:
         if len(adult_parse) != 0:
             self.__isadult = True
 
-    # getter
-    @property
-    def title(self):
-        return self.__title
-
-    @property
-    def title_id(self):
-        return self.__title_id
-
-    @property
-    def content(self):
-        return self.__content
-
-    @property
-    def wtype(self):
-        return self.__wtype
-
-    @property
-    def isadult(self):
-        return self.__isadult
-
-    @property
-    def number (self):
-        return self.__number
-
     def search(self, keyword):
-        list = []
+        lst = []
         req = requests.get("https://comic.naver.com/search.nhn?keyword=" + keyword)
         soup = BeautifulSoup(req.content, 'html.parser')
         txt = soup.select("#content > div:nth-child(2) > ul.resultList")
@@ -91,14 +77,14 @@ class nwebtoon:
                 if title:
                     t = re.search('[0-9]{5,6}', string.get('href'))
                     if t:
-                        list.append([title.group(1), t.group()])
+                        lst.append([title.group(1), t.group()])
 
             print('-----웹툰 검색결과-----')
-            for i, title in enumerate(list):
+            for i, title in enumerate(lst):
                 print(f'{i} {self.tag_remover(title[0])}')
             print('----------------------')
             index = int(input('선택할 웹툰의 번호를 입력해주세요 : '))
-            title_id = str(list[index][1])
+            title_id = str(lst[index][1])
             return title_id
 
     # 경로 금지 문자 제거, HTML문자 제거
@@ -231,12 +217,38 @@ class nwebtoon:
                     file.write(error)
                     file.close()
                 break
+                
+    # Getter 함수 구현 (프로퍼티)
+    @property
+    def title(self):
+        return self.__title
+
+    @property
+    def title_id(self):
+        return self.__title_id
+
+    @property
+    def content(self):
+        return self.__content
+
+    @property
+    def wtype(self):
+        return self.__wtype
+
+    @property
+    def isadult(self):
+        return self.__isadult
+
+    @property
+    def number(self):
+        return self.__number
+
 
 dialog = input('모드를 선택해주세요 d : 다운로드 , m : 이미지합치기 : ')
 if dialog.lower() == 'd':
     query = input("정보를 입력해주세요(웹툰ID, URL, 웹툰제목) : ")
     if query.strip() != '':
-        webtoon = nwebtoon(query)  # 객체 생성
+        webtoon = NWebtoon(query)  # 객체 생성
         title_id = webtoon.title_id
     else:
         input("입력값이 없습니다..")
@@ -258,11 +270,13 @@ if dialog.lower() == 'd':
     dialog = dialog.strip()
 
     if dialog.find('-') == -1:  # 숫자만 입력했을때
-        webtoon.single_download(dialog)
+        download_number = dialog
+        webtoon.single_download(download_number)
     elif int(dialog.split('-')[1]) > webtoon.number:  # 최대화수 초과했을때
         input("최대화수를 초과했습니다")
     else:  # 일반 다운로드일때
-        webtoon.multi_download(dialog)
+        download_number_lst = dialog
+        webtoon.multi_download(download_number_lst)
         input('다운로드가 완료되었습니다.')
 elif dialog.lower() == 'm':
     input('준비중입니다.')
