@@ -1,21 +1,16 @@
-# -*- coding: utf-8 -*-
-import requests
-import os, errno, glob
-from requests import get
-from bs4 import BeautifulSoup
-from multiprocessing.pool import ThreadPool
+import errno
 import multiprocessing
+import os
 import re
-from PIL import Image
-from sys import exit
-from datetime import datetime
+from multiprocessing.pool import ThreadPool
 from time import sleep
 from urllib import parse
 
-download_index = 1
-NID_AUT = ''
-NID_SES = ''
+import requests
+from bs4 import BeautifulSoup
+from requests import get
 
+download_index = 1
 
 class NWebtoon:
     def __init__(self, query):
@@ -26,6 +21,10 @@ class NWebtoon:
         :param query: 검색어
         """
         # 생성자에서 파이썬 인스턴스 변수 초기화
+        # NID_AUT 와 NID_SES 는 나중에 get_session() 함수를 통해 받아올 것임.
+        self.NID_SES = ""
+        self.NID_AUT = ""
+
         exp = '[0-9]{5,6}'
         if 'titleId=' in query:  # 입력값에 titleid가 존재하면
             id_pattern = re.search(exp, query)
@@ -60,6 +59,12 @@ class NWebtoon:
         self.__isadult = False
         if len(adult_parse) != 0:
             self.__isadult = True
+
+    def get_session(self, NID_AUT, NID_SES):
+        # NID_AUT, NID_SES 가져오기
+        self.NID_AUT = NID_AUT
+        self.NID_SES = NID_SES
+
 
     def search(self, keyword):
         lst = []
@@ -155,11 +160,11 @@ class NWebtoon:
 
     # 이미지 링크 추출(경로 포함)
     def get_image_link(self, args):
-        global download_index, NID_AUT, NID_SES
+        global download_index
         result = []
         for i in range(int(args[0]), int(args[1]) + 1):
             url = "https://comic.naver.com/" + self.__wtype + "/detail.nhn?titleId=" + self.__title_id + "&no=" + str(i)
-            cookies = {'NID_AUT': NID_AUT, 'NID_SES': NID_SES}
+            cookies = {'NID_AUT': self.NID_AUT, 'NID_SES': self.NID_SES}
             req = requests.get(url, cookies=cookies)
             soup = BeautifulSoup(req.content, 'html.parser')
             manga_title = soup.select('div.tit_area > div.view > h3')  # 웹툰 제목 가져오기
@@ -217,7 +222,7 @@ class NWebtoon:
                     file.write(error)
                     file.close()
                 break
-                
+
     # Getter 함수 구현 (프로퍼티)
     @property
     def title(self):
@@ -242,43 +247,3 @@ class NWebtoon:
     @property
     def number(self):
         return self.__number
-
-
-dialog = input('모드를 선택해주세요 d : 다운로드 , m : 이미지합치기 : ')
-if dialog.lower() == 'd':
-    query = input("정보를 입력해주세요(웹툰ID, URL, 웹툰제목) : ")
-    if query.strip() != '':
-        webtoon = NWebtoon(query)  # 객체 생성
-        title_id = webtoon.title_id
-    else:
-        input("입력값이 없습니다..")
-        exit()
-
-    print('-------------------------------')
-    print(f"웹툰명 : {webtoon.title}")
-    print(f"총화수 : {webtoon.number}화")
-    print(f"종류 : {webtoon.wtype}")
-    print(webtoon.content)
-    print('-------------------------------')
-
-    if webtoon.isadult:
-        print('성인 웹툰입니다. 로그인 정보를 입력해주세요.')
-        NID_AUT = input("NID_AUT : ")
-        NID_SES = input("NID_SES : ")
-
-    dialog = input('몇화부터 몇화까지 다운로드 받으시겠습니까? 예) 1-10 , 5: ')
-    dialog = dialog.strip()
-
-    if dialog.find('-') == -1:  # 숫자만 입력했을때
-        download_number = dialog
-        webtoon.single_download(download_number)
-    elif int(dialog.split('-')[1]) > webtoon.number:  # 최대화수 초과했을때
-        input("최대화수를 초과했습니다")
-    else:  # 일반 다운로드일때
-        download_number_lst = dialog
-        webtoon.multi_download(download_number_lst)
-        input('다운로드가 완료되었습니다.')
-elif dialog.lower() == 'm':
-    input('준비중입니다.')
-else:
-    input('올바르지 않은 입력입니다.')
