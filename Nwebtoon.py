@@ -109,13 +109,15 @@ class NWebtoon:
         string = re.sub(cleaner, '', string)
         return string
 
+    # URL 이미지 다운로드에 실제로 사용하는 함수
     def image_download(self, url, file_name):
         with open(file_name, "wb") as file:  # open in binary mode
             headers = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.119 Safari/537.36',
                 'host': 'image-comic.pstatic.net'}
             response = get(url, headers=headers)  # get request
-            file.write(response.content)  # write to file
+            if response.status_code == 200:
+                file.write(response.content)  # write to file
 
     # 단일 이미지 다운로드
     def single_download(self, args):
@@ -201,13 +203,7 @@ class NWebtoon:
         for i in range(3):  # 총 3회 시도
             try:
                 uri, path = data  # [URL, PATH] 형태로 들어온 리스트를 읽어냄
-                with open(path, "wb") as file:
-                    headers = {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.119 Safari/537.36',
-                        'host': 'image-comic.pstatic.net'}
-                    response = get(uri, headers=headers)  # get request
-                    if response.status_code == 200:
-                        file.write(response.content)  # write file
+                self.image_download(uri, path)
                 return data
                 break
             except requests.exceptions.ConnectionError:  # 커넥션 오류시(max retires)
