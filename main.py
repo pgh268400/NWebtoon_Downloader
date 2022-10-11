@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 from sys import exit
 # 웹툰 다운로드 Class
-from Nwebtoon import *
+from module.Nwebtoon import *
 
+# 이미지 병합 Class
+from module.ImageMerger import *
 
 if __name__ == "__main__":
     dialog = input('모드를 선택해주세요 d : 다운로드 , m : 이미지합치기 : ')
@@ -26,7 +28,7 @@ if __name__ == "__main__":
             print('성인 웹툰입니다. 로그인 정보를 입력해주세요.')
             NID_AUT = input("NID_AUT : ")
             NID_SES = input("NID_SES : ")
-            webtoon.get_session(NID_AUT, NID_SES) #객체에 세션 데이터 넘기기
+            webtoon.set_session(NID_AUT, NID_SES)  # 객체에 세션 데이터 넘기기
 
         dialog = input('몇화부터 몇화까지 다운로드 받으시겠습니까? 예) 1-10 , 5: ')
         dialog = dialog.strip()
@@ -41,6 +43,10 @@ if __name__ == "__main__":
             webtoon.multi_download(download_number_lst)
             input('다운로드가 완료되었습니다.')
     elif dialog.lower() == 'm':
-        input('준비중입니다.')
+        path = input("병합할 웹툰 경로를 입력해주세요 : ")
+        image = ImageMerger(path)
+        image.print_lists()
+        image.merge()
+        input('작업이 완료되었습니다.')
     else:
         input('올바르지 않은 입력입니다.')

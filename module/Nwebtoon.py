@@ -12,6 +12,7 @@ from requests import get
 
 download_index = 1
 
+
 class NWebtoon:
     def __init__(self, query):
         """
@@ -39,17 +40,22 @@ class NWebtoon:
             else:  # 검색어면
                 self.__title_id = self.search(query)
 
-        req = requests.get("https://comic.naver.com/webtoon/list.nhn?titleId=" + self.__title_id)
+        req = requests.get(
+            "https://comic.naver.com/webtoon/list.nhn?titleId=" + self.__title_id)
         soup = BeautifulSoup(req.content, 'html.parser')
 
         # title = 제목, num = 총화수, content = 웹툰 설명, type = 웹툰 타입, isadult = 성인웹툰 유무
         # 파이썬의 private 키워드 __ 를 통해 캡슐화를 구현하도록 하자.
 
-        self.__title = soup.find("meta", property="og:title")["content"]  # 타이틀 가져오기
-        self.__content = soup.find("meta", property="og:description")['content']  # 컨텐츠 가져오기
+        self.__title = soup.find("meta", property="og:title")[
+            "content"]  # 타이틀 가져오기
+        self.__content = soup.find("meta", property="og:description")[
+            'content']  # 컨텐츠 가져오기
 
-        table = soup.select("tr > td.title > a")[0]['onclick']  # a태그의 onclick 항목 가져오기
-        self.__number = table.split(',')[3].replace(")", "")  # 총화수를 구하기위해 onclick을 , 로 쪼개고 쓸모없는 부분을 Replace로 날린다.
+        table = soup.select("tr > td.title > a")[
+            0]['onclick']  # a태그의 onclick 항목 가져오기
+        # 총화수를 구하기위해 onclick을 , 로 쪼개고 쓸모없는 부분을 Replace로 날린다.
+        self.__number = table.split(',')[3].replace(")", "")
         self.__number = int(self.__number.replace("'", ""))  # int 형식으로 변환한다.
 
         self.__wtype = soup.select('td.title > a')[0]['href']
@@ -60,15 +66,15 @@ class NWebtoon:
         if len(adult_parse) != 0:
             self.__isadult = True
 
-    def get_session(self, NID_AUT, NID_SES):
+    def set_session(self, NID_AUT, NID_SES):
         # NID_AUT, NID_SES 가져오기
         self.NID_AUT = NID_AUT
         self.NID_SES = NID_SES
 
-
     def search(self, keyword):
         lst = []
-        req = requests.get("https://comic.naver.com/search.nhn?keyword=" + keyword)
+        req = requests.get(
+            "https://comic.naver.com/search.nhn?keyword=" + keyword)
         soup = BeautifulSoup(req.content, 'html.parser')
         txt = soup.select("#content > div:nth-child(2) > ul.resultList")
         p = re.search('검색 결과가 없습니다.', str(txt))
@@ -94,18 +100,21 @@ class NWebtoon:
 
     # 경로 금지 문자 제거, HTML문자 제거
     def filename_remover(self, string):
-        cleaner = re.compile('<.*?>|&([a-z0-9]+|#[0-9]{1,6}|#x[0-9a-f]{1,6});')  # <tag>, &nbsp 등등 제거
+        # <tag>, &nbsp 등등 제거
+        cleaner = re.compile('<.*?>|&([a-z0-9]+|#[0-9]{1,6}|#x[0-9a-f]{1,6});')
         string = re.sub(cleaner, '', string)
         while string[-1] == '.':
             string = string[:-1]  # 끝에 . 제거 ex) test... -> test
-        non_directory_letter = ['/', ':', '*', '?', '<', '>', '|']  # 경로 금지 문자열 제거
+        non_directory_letter = ['/', ':', '*',
+                                '?', '<', '>', '|']  # 경로 금지 문자열 제거
         for str_ in non_directory_letter:
             if str_ in string:
                 string = string.replace(str_, "")
         return string
 
     def tag_remover(self, string):
-        cleaner = re.compile('<.*?>|&([a-z0-9]+|#[0-9]{1,6}|#x[0-9a-f]{1,6});')  # <tag>, &nbfs 등등 제거
+        # <tag>, &nbfs 등등 제거
+        cleaner = re.compile('<.*?>|&([a-z0-9]+|#[0-9]{1,6}|#x[0-9a-f]{1,6});')
         string = re.sub(cleaner, '', string)
         return string
 
@@ -122,12 +131,14 @@ class NWebtoon:
     # 단일 이미지 다운로드
     def single_download(self, args):
         print(args, '화 다운로드 시작되었습니다')
-        url = "https://comic.naver.com/" + self.__wtype + "/detail.nhn?titleId=" + self.__title_id + "&no=" + args
+        url = "https://comic.naver.com/" + self.__wtype + \
+            "/detail.nhn?titleId=" + self.__title_id + "&no=" + args
         req = requests.get(url)
         soup = BeautifulSoup(req.content, 'html.parser')
 
         manga_title = soup.select('div.tit_area > div.view > h3')  # 웹툰 제목 가져오기
-        manga_title = self.tag_remover(str(manga_title[0]))  # 리스트를 string 으로 바꾸고 불필요한 string 제거한다.
+        # 리스트를 string 으로 바꾸고 불필요한 string 제거한다.
+        manga_title = self.tag_remover(str(manga_title[0]))
         path = str(self.__title) + '\\' + manga_title
         try:
             os.makedirs(path)
@@ -165,17 +176,21 @@ class NWebtoon:
         global download_index
         result = []
         for i in range(int(args[0]), int(args[1]) + 1):
-            url = "https://comic.naver.com/" + self.__wtype + "/detail.nhn?titleId=" + self.__title_id + "&no=" + str(i)
+            url = "https://comic.naver.com/" + self.__wtype + \
+                "/detail.nhn?titleId=" + self.__title_id + "&no=" + str(i)
             cookies = {'NID_AUT': self.NID_AUT, 'NID_SES': self.NID_SES}
             req = requests.get(url, cookies=cookies)
             soup = BeautifulSoup(req.content, 'html.parser')
-            manga_title = soup.select('div.tit_area > div.view > h3')  # 웹툰 제목 가져오기
-            manga_title = self.filename_remover(str(manga_title[0]))  # 리스트를 string 으로 바꾸고 불필요한 string 제거한다.
+            manga_title = soup.select(
+                'div.tit_area > div.view > h3')  # 웹툰 제목 가져오기
+            # 리스트를 string 으로 바꾸고 불필요한 string 제거한다.
+            manga_title = self.filename_remover(str(manga_title[0]))
 
             idx = "[" + str(download_index) + "] "  # 순번매기기 형식 [0], [1]...
-            path = self.filename_remover(str(self.__title) + '\\' + idx + manga_title)
+            path = self.filename_remover(
+                str(self.__title) + '\\' + idx + manga_title)
             try:
-                print(f'[디렉토리 생성] {manga_title}');
+                print(f'[디렉토리 생성] {manga_title}')
                 os.makedirs(path)
             except OSError as e:
                 if e.errno != errno.EEXIST:
@@ -192,7 +207,8 @@ class NWebtoon:
                 _path = path + "\\" + str(j) + ext
 
                 if not 'img-ctguide-white.png' in url:  # 컷툰이미지 제거하기
-                    result.append([url, self.tag_remover(_path)])  # URL,PATH 형식으로 List에 저장
+                    # URL,PATH 형식으로 List에 저장
+                    result.append([url, self.tag_remover(_path)])
                 j += 1
             download_index = download_index + 1
         return result
