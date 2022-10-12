@@ -1,10 +1,14 @@
 # -*- coding: utf-8 -*-
+from module.ImageMerger import *
 from sys import exit
 # 웹툰 다운로드 Class
 from module.Nwebtoon import *
 
+# 타이틀 이름 변경용
+import ctypes
+ctypes.windll.kernel32.SetConsoleTitleW("NWebtoon Downloader v4")
+
 # 이미지 병합 Class
-from module.ImageMerger import *
 
 if __name__ == "__main__":
     dialog = input('모드를 선택해주세요 d : 다운로드 , m : 이미지합치기 : ')
