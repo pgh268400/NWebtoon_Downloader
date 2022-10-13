@@ -9,7 +9,6 @@ import ctypes
 ctypes.windll.kernel32.SetConsoleTitleW("NWebtoon Downloader v4")
 
 # 이미지 병합 Class
-
 if __name__ == "__main__":
     dialog = input('모드를 선택해주세요 d : 다운로드 , m : 이미지합치기 : ')
     if dialog.lower() == 'd':
