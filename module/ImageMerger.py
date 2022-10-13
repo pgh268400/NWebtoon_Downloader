@@ -110,7 +110,8 @@ class ImageMerger:
     def __get_files_in_dir(self, path):
         file_lst = os.listdir(path)
         for i in range(0, len(file_lst)):
-            file_lst[i] = path + "\\" + file_lst[i]
+            # file_lst[i] = path + "\\" + file_lst[i]
+            file_lst[i] = os.path.join(path, file_lst[i])
         file_lst = natsort.natsorted(file_lst)  # natural sort 로 정렬
         return file_lst
 

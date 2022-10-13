@@ -139,7 +139,8 @@ class NWebtoon:
         manga_title = soup.select('div.tit_area > div.view > h3')  # 웹툰 제목 가져오기
         # 리스트를 string 으로 바꾸고 불필요한 string 제거한다.
         manga_title = self.tag_remover(str(manga_title[0]))
-        path = str(self.__title) + '\\' + manga_title
+        # path = str(self.__title) + '\\' + manga_title
+        path = os.path.join(str(self.__title), manga_title)
         try:
             os.makedirs(path)
         except OSError as e:
@@ -154,7 +155,8 @@ class NWebtoon:
             parsed = parse.urlparse(url)
             name, ext = os.path.splitext(parsed.path)
 
-            _path = path + "\\" + str(j) + ext
+            # _path = path + "\\" + str(j) + ext
+            _path = os.path.join(path, str(j) + ext)
             self.image_download(url, _path)
             j += 1
             print(url)
@@ -188,7 +190,9 @@ class NWebtoon:
 
             idx = "[" + str(download_index) + "] "  # 순번매기기 형식 [0], [1]...
             path = self.filename_remover(
-                str(self.__title) + '\\' + idx + manga_title)
+                os.path.join(str(self.__title), idx + manga_title))
+            # str(self.__title) + '\\' + idx + manga_title)
+
             try:
                 print(f'[디렉토리 생성] {manga_title}')
                 os.makedirs(path)
@@ -204,7 +208,8 @@ class NWebtoon:
 
                 parsed = parse.urlparse(url)
                 name, ext = os.path.splitext(parsed.path)
-                _path = path + "\\" + str(j) + ext
+                # _path = path + "\\" + str(j) + ext
+                _path = os.path.join(path, str(j) + ext)
 
                 if not 'img-ctguide-white.png' in url:  # 컷툰이미지 제거하기
                     # URL,PATH 형식으로 List에 저장
