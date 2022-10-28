@@ -104,16 +104,17 @@ class NWebtoon:
         cleaner = re.compile('<.*?>|&([a-z0-9]+|#[0-9]{1,6}|#x[0-9a-f]{1,6});')
         string = re.sub(cleaner, '', string)
 
-        non_directory_letter = []
         while string[-1] == '.':
             string = string[:-1]  # 끝에 . 제거 ex) test... -> test
 
-            if os.name == 'nt':
-                non_directory_letter = ['/', ':', '*',
-                                        '?', '<', '>', '|']  # 경로 금지 문자열 제거
-            elif os.name == 'posix':
-                non_directory_letter = [':', '*',
-                                        '?', '<', '>', '|']  # 경로 금지 문자열 제거
+        non_directory_letter = []
+        if os.name == 'nt':
+            non_directory_letter = ['/', ':', '*',
+                                    '?', '<', '>', '|']  # 경로 금지 문자열 제거
+        elif os.name == 'posix':
+            non_directory_letter = [':', '*',
+                                    '?', '<', '>', '|']  # 경로 금지 문자열 제거
+
         for str_ in non_directory_letter:
             if str_ in string:
                 string = string.replace(str_, "")
