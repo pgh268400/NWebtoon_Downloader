@@ -116,13 +116,16 @@ class ImageMerger:
         return file_lst
 
     def merge(self):
-        # 단일 디렉토리인 경우
-        if self.__pure_file:
-            self.__image_merge(self.__file_lst)  # 파일 리스트 그대로 merge
-            # print(self.__file_lst)
-        else:
-            # 폴더가 안에 또 있는 구조면
-            for dir in self.__file_lst:
-                inner_files_lst = self.__get_files_in_dir(dir)
-                # print(inner_files_lst)
-                self.__image_merge(inner_files_lst)
+        try:
+            # 단일 디렉토리인 경우
+            if self.__pure_file:
+                self.__image_merge(self.__file_lst)  # 파일 리스트 그대로 merge
+                # print(self.__file_lst)
+            else:
+                # 폴더가 안에 또 있는 구조면
+                for dir in self.__file_lst:
+                    inner_files_lst = self.__get_files_in_dir(dir)
+                    # print(inner_files_lst)
+                    self.__image_merge(inner_files_lst)
+        except Exception as e:
+            print(e)

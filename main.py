@@ -3,10 +3,12 @@ from module.ImageMerger import *
 from sys import exit
 # 웹툰 다운로드 Class
 from module.Nwebtoon import *
+import os
 
-# 타이틀 이름 변경용
-import ctypes
-ctypes.windll.kernel32.SetConsoleTitleW("NWebtoon Downloader v4")
+# OS가 윈도우인 경우만 타이틀 변경 허용 (리눅스에선 아래 코드가 동작하지 않음)
+if os.name == 'nt':
+    import ctypes
+    ctypes.windll.kernel32.SetConsoleTitleW("NWebtoon Downloader v4")
 
 # 이미지 병합 Class
 if __name__ == "__main__":
