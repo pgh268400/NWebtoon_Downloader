@@ -103,10 +103,17 @@ class NWebtoon:
         # <tag>, &nbsp 등등 제거
         cleaner = re.compile('<.*?>|&([a-z0-9]+|#[0-9]{1,6}|#x[0-9a-f]{1,6});')
         string = re.sub(cleaner, '', string)
+
+        non_directory_letter = []
         while string[-1] == '.':
             string = string[:-1]  # 끝에 . 제거 ex) test... -> test
-        non_directory_letter = ['/', ':', '*',
-                                '?', '<', '>', '|']  # 경로 금지 문자열 제거
+
+            if os.name == 'nt':
+                non_directory_letter = ['/', ':', '*',
+                                        '?', '<', '>', '|']  # 경로 금지 문자열 제거
+            elif os.name == 'posix':
+                non_directory_letter = [':', '*',
+                                        '?', '<', '>', '|']  # 경로 금지 문자열 제거
         for str_ in non_directory_letter:
             if str_ in string:
                 string = string.replace(str_, "")
@@ -141,7 +148,9 @@ class NWebtoon:
         manga_title = self.tag_remover(str(manga_title[0]))
         # path = str(self.__title) + '\\' + manga_title
         path = os.path.join(str(self.__title), manga_title)
+
         try:
+            print("path : ", path)
             os.makedirs(path)
         except OSError as e:
             if e.errno != errno.EEXIST:
@@ -189,9 +198,16 @@ class NWebtoon:
             manga_title = self.filename_remover(str(manga_title[0]))
 
             idx = "[" + str(download_index) + "] "  # 순번매기기 형식 [0], [1]...
-            path = self.filename_remover(
-                os.path.join(str(self.__title), idx + manga_title))
-            # str(self.__title) + '\\' + idx + manga_title)
+
+            # running_path = os.path.abspath(os.path.dirname(__file__))
+            img_path = os.path.join(str(
+                self.__title), idx + manga_title)
+
+            path = self.filename_remover(img_path)
+
+            # print title, idx, manga_title
+            # print("title : ", self.__title, "idx : ",
+            #       idx, "manga_title : ", manga_title)
 
             try:
                 print(f'[디렉토리 생성] {manga_title}')
