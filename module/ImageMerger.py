@@ -54,8 +54,15 @@ class ImageMerger:
         for element in self.__file_lst:
             print(element)
 
-    # 코드 참고 : https://stackoverflow.com/questions/53876007/how-to-vertically-merge-two-images
+    # 수직으로 합칠때, 큰 이미지가 있으면 작게 resize 후 붙이는 함수
+    # https://note.nkmk.me/en/python-opencv-hconcat-vconcat-np-tile/
+    def vconcat_resize_min(self, im_list, interpolation=cv2.INTER_CUBIC):
+        w_min = min(im.shape[1] for im in im_list)
+        im_list_resize = [cv2.resize(im, (w_min, int(im.shape[0] * w_min / im.shape[1])), interpolation=interpolation)
+                          for im in im_list]
+        return cv2.vconcat(im_list_resize)
 
+     # 코드 참고 : https://stackoverflow.com/questions/53876007/how-to-vertically-merge-two-images
     def __image_merge(self, file_lst: list):
         try:
             rel_base_path = os.path.dirname(file_lst[0])  # 웹툰이 저장되어 있는 폴더 경로
@@ -87,7 +94,10 @@ class ImageMerger:
                 img_array = np.fromfile(image_full_path, np.uint8)
                 img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
                 img_lst.append(img)
-            result = cv2.vconcat(img_lst)
+
+            # call vconcat_resize_min function
+            result = self.vconcat_resize_min(img_lst)
+            # result = cv2.vconcat(img_lst)
 
             output_path = os.path.join(base_path, 'output.png')
             print("출력 경로 : ", output_path)
