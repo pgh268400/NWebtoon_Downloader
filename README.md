@@ -20,8 +20,8 @@ requirement : Python >=3.9
 ```
 
 ```
-git clone https://github.com/pgh268400/NWebtoon_Downloader.git && cd "$(basename "$_" .git)" #clone and auto change directory
-python3 main.py #or python main.py
+git clone https://github.com/pgh268400/NWebtoon_Downloader.git && cd "$(basename "$_" .git)"; #clone and auto change directory
+python3 main.py #or python main.py;
 ```
 위 코드를 이용해서 코드를 실행해볼 수 있습니다.
 
