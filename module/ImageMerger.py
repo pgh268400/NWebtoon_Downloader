@@ -17,8 +17,8 @@ class ImageMerger:
 
             # 디렉토리를 순회하면서 리스트에 저장 (앞의 경로까지 다 저장)
             file_lst = os.listdir(self.__dir_path)
+
             for i in range(0, len(file_lst)):
-                # file_lst[i] = dir_path + "\\" + file_lst[i]
                 file_lst[i] = os.path.join(dir_path, file_lst[i])
 
             # 파일 리스트 기억
@@ -50,20 +50,18 @@ class ImageMerger:
             input()
             exit()
 
-    def print_lists(self):
-        for element in self.__file_lst:
-            print(element)
+    # Private Method -------------------------------------------------------
 
     # 수직으로 합칠때, 큰 이미지가 있으면 작게 resize 후 붙이는 함수
     # https://note.nkmk.me/en/python-opencv-hconcat-vconcat-np-tile/
-    def vconcat_resize_min(self, im_list, interpolation=cv2.INTER_CUBIC):
+    def __vconcat_resize_min(self, im_list, interpolation=cv2.INTER_CUBIC):
         w_min = min(im.shape[1] for im in im_list)
         im_list_resize = [cv2.resize(im, (w_min, int(im.shape[0] * w_min / im.shape[1])), interpolation=interpolation)
                           for im in im_list]
         return cv2.vconcat(im_list_resize)
 
      # 코드 참고 : https://stackoverflow.com/questions/53876007/how-to-vertically-merge-two-images
-    def __image_merge(self, file_lst: list):
+    def _processing(self, file_lst: list):
         try:
             rel_base_path = os.path.dirname(file_lst[0])  # 웹툰이 저장되어 있는 폴더 경로
             base_path = os.path.abspath(rel_base_path)  # 절대경로로 변환
@@ -86,17 +84,17 @@ class ImageMerger:
 
             img_lst = []
             for image_file in file_lst:
-                print("이미지 파일 : ", image_file)
-                # 이미지 읽기
-                image_full_path = os.path.abspath(image_file)
-
-                # 한글 경로를 처리할 수 있게 numpy로 읽어옴
-                img_array = np.fromfile(image_full_path, np.uint8)
-                img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
-                img_lst.append(img)
+                # 이미지 읽기 (이미지 파일인경우만 수행)
+                if image_file.endswith('.png') or image_file.endswith('.jpg') or image_file.endswith('.jpeg'):
+                    print("이미지 파일 : ", image_file)
+                    image_full_path = os.path.abspath(image_file)
+                    # 한글 경로를 처리할 수 있게 numpy로 읽어옴
+                    img_array = np.fromfile(image_full_path, np.uint8)
+                    img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+                    img_lst.append(img)
 
             # call vconcat_resize_min function
-            result = self.vconcat_resize_min(img_lst)
+            result = self.__vconcat_resize_min(img_lst)
             # result = cv2.vconcat(img_lst)
 
             output_path = os.path.join(base_path, 'output.png')
@@ -120,22 +118,25 @@ class ImageMerger:
     def __get_files_in_dir(self, path):
         file_lst = os.listdir(path)
         for i in range(0, len(file_lst)):
-            # file_lst[i] = path + "\\" + file_lst[i]
             file_lst[i] = os.path.join(path, file_lst[i])
         file_lst = natsort.natsorted(file_lst)  # natural sort 로 정렬
         return file_lst
 
-    def merge(self):
+    # Public Method -------------------------------------------------------
+
+    def print_lists(self):
+        for element in self.__file_lst:
+            print(element)
+
+    def run(self):
         try:
             # 단일 디렉토리인 경우
             if self.__pure_file:
-                self.__image_merge(self.__file_lst)  # 파일 리스트 그대로 merge
-                # print(self.__file_lst)
+                self._processing(self.__file_lst)  # 파일 리스트 그대로 merge
             else:
                 # 폴더가 안에 또 있는 구조면
                 for dir in self.__file_lst:
                     inner_files_lst = self.__get_files_in_dir(dir)
-                    # print(inner_files_lst)
-                    self.__image_merge(inner_files_lst)
+                    self._processing(inner_files_lst)
         except Exception as e:
             print(e)

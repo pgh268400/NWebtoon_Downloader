@@ -4,3 +4,6 @@
 *.xml
 *.iml
 *.exe
+*.html
+!template.html
+test.ipynb

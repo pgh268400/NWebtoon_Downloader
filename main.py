@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from module.HtmlMaker import HtmlMaker
 from module.ImageMerger import *
 from sys import exit
 # 웹툰 다운로드 Class
@@ -8,11 +9,16 @@ import os
 # OS가 윈도우인 경우만 타이틀 변경 허용 (리눅스에선 아래 코드가 동작하지 않음)
 if os.name == 'nt':
     import ctypes
-    ctypes.windll.kernel32.SetConsoleTitleW("NWebtoon Downloader v4")
+    ctypes.windll.kernel32.SetConsoleTitleW("NWebtoon Downloader v4.1")
 
 # 이미지 병합 Class
 if __name__ == "__main__":
-    dialog = input('모드를 선택해주세요 d : 다운로드 , m : 이미지합치기 : ')
+    print("::NWebtoon Downloader::")
+    print('<모드를 선택해주세요>')
+    print('d : 다운로드')
+    print('m : 이미지 병합')
+    print('h : html 생성')
+    dialog = input('>>> ')
     if dialog.lower() == 'd':
         query = input("정보를 입력해주세요(웹툰ID, URL, 웹툰제목) : ")
         if query.strip() != '':
@@ -51,7 +57,14 @@ if __name__ == "__main__":
         path = input("병합할 웹툰 경로를 입력해주세요 : ")
         image = ImageMerger(path)
         image.print_lists()
-        image.merge()
+        image.run()
         input('작업이 완료되었습니다.')
+    elif dialog.lower() == 'h':
+        path = input("html 생성할 웹툰 경로를 입력해주세요 : ")
+        html = HtmlMaker(path)
+        html.print_lists()
+        html.run()
+        input('작업이 완료되었습니다.')
+
     else:
         input('올바르지 않은 입력입니다.')

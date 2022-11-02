@@ -247,6 +247,7 @@ class NWebtoon:
             except requests.exceptions.ConnectionError:  # 커넥션 오류시(max retires)
                 print("연결 실패.. 다시 시도중..")
                 sleep(1000)
+                self.p_image_download(data)
                 continue
             except Exception as ex:
                 print("오류가 발생하여 오류를 파일에 기록합니다.")
