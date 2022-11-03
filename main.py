@@ -17,7 +17,7 @@ if __name__ == "__main__":
     print('<모드를 선택해주세요>')
     print('d : 다운로드')
     print('m : 이미지 병합')
-    print('h : html 생성')
+    print('h : HTML 생성')
     dialog = input('>>> ')
     if dialog.lower() == 'd':
         query = input("정보를 입력해주세요(웹툰ID, URL, 웹툰제목) : ")
@@ -60,7 +60,7 @@ if __name__ == "__main__":
         image.run()
         input('작업이 완료되었습니다.')
     elif dialog.lower() == 'h':
-        path = input("html 생성할 웹툰 경로를 입력해주세요 : ")
+        path = input("HTML을 생성할 웹툰 경로를 입력해주세요 : ")
         html = HtmlMaker(path)
         html.print_lists()
         html.run()

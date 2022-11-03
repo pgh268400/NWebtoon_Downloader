@@ -104,20 +104,22 @@ class NWebtoon:
         cleaner = re.compile('<.*?>|&([a-z0-9]+|#[0-9]{1,6}|#x[0-9a-f]{1,6});')
         string = re.sub(cleaner, '', string)
 
+        # 끝에 . 제거 ex) test... -> test
         while string[-1] == '.':
-            string = string[:-1]  # 끝에 . 제거 ex) test... -> test
+            string = string[:-1]
 
+        # 폴더에 저장할 수 없는 문자 제거
         non_directory_letter = []
         if os.name == 'nt':
             non_directory_letter = ['/', ':', '*',
                                     '?', '<', '>', '|']  # 경로 금지 문자열 제거
         elif os.name == 'posix':
             non_directory_letter = [':', '*',
-                                    '?', '<', '>', '|']  # 경로 금지 문자열 제거
+                                    '?', '<', '>', '|']  # 경로 금지 문자열 제거 (리눅스에선 / 가 경로 구분자라 제거하지 않음)
 
-        for str_ in non_directory_letter:
-            if str_ in string:
-                string = string.replace(str_, "")
+        for char in non_directory_letter:
+            if char in string:
+                string = string.replace(char, "")
         return string
 
     def tag_remover(self, string):
@@ -139,16 +141,17 @@ class NWebtoon:
     # 단일 이미지 다운로드
     def single_download(self, args):
         print(args, '화 다운로드 시작되었습니다')
-        url = "https://comic.naver.com/" + self.__wtype + \
-            "/detail.nhn?titleId=" + self.__title_id + "&no=" + args
+        # url = "https://comic.naver.com/" + self.__wtype + \
+        #     "/detail.nhn?titleId=" + self.__title_id + "&no=" + args
+        url = f"https://comic.naver.com/{self.__wtype}/detail.nhn?titleId={self.__title_id}&no={args}"
         req = requests.get(url)
         soup = BeautifulSoup(req.content, 'html.parser')
 
-        manga_title = soup.select('div.tit_area > div.view > h3')  # 웹툰 제목 가져오기
+        manga_title = soup.select('div.tit_area > div.view > h3')[
+            0].get_text()  # 웹툰 제목 가져오기
         # 리스트를 string 으로 바꾸고 불필요한 string 제거한다.
-        manga_title = self.tag_remover(str(manga_title[0]))
-        # path = str(self.__title) + '\\' + manga_title
-        path = os.path.join(str(self.__title), manga_title)
+        manga_title = self.tag_remover(manga_title)
+        path = os.path.join(self.__title, manga_title)
 
         try:
             print("path : ", path)
@@ -175,6 +178,7 @@ class NWebtoon:
     def multi_download(self, dialog):
         global download_index
 
+        # 멀티 프로세싱을 이용한 병렬 다운로드 처리
         download_index = int(dialog.split('-')[0])
         core_count = multiprocessing.cpu_count() * 2
         download_range = dialog.split('-')
@@ -188,21 +192,25 @@ class NWebtoon:
         global download_index
         result = []
         for i in range(int(args[0]), int(args[1]) + 1):
-            url = "https://comic.naver.com/" + self.__wtype + \
-                "/detail.nhn?titleId=" + self.__title_id + "&no=" + str(i)
+            # url = "https://comic.naver.com/" + self.__wtype + \
+            #     "/detail.nhn?titleId=" + self.__title_id + "&no=" + str(i)
+            # fstring으로 변경
+            url = f"https://comic.naver.com/{self.__wtype}/detail.nhn?titleId={self.__title_id}&no={i}"
+
             cookies = {'NID_AUT': self.NID_AUT, 'NID_SES': self.NID_SES}
             req = requests.get(url, cookies=cookies)
             soup = BeautifulSoup(req.content, 'html.parser')
-            manga_title = soup.select(
-                'div.tit_area > div.view > h3')  # 웹툰 제목 가져오기
-            # 리스트를 string 으로 바꾸고 불필요한 string 제거한다.
-            manga_title = self.filename_remover(str(manga_title[0]))
 
-            idx = "[" + str(download_index) + "] "  # 순번매기기 형식 [0], [1]...
+            manga_title = soup.select(
+                'div.tit_area > div.view > h3')[0].get_text()  # 웹툰 제목 가져오기
+            # 리스트를 string 으로 바꾸고 불필요한 string 제거한다.
+            manga_title = self.filename_remover(manga_title)
+
+            # idx = "[" + str(download_index) + "] "  # 순번매기기 형식 [0], [1]...
+            idx = f"[{download_index}] "
 
             # running_path = os.path.abspath(os.path.dirname(__file__))
-            img_path = os.path.join(str(
-                self.__title), idx + manga_title)
+            img_path = os.path.join(self.__title, idx + manga_title)
 
             path = self.filename_remover(img_path)
 
@@ -225,7 +233,6 @@ class NWebtoon:
 
                 parsed = parse.urlparse(url)
                 name, ext = os.path.splitext(parsed.path)
-                # _path = path + "\\" + str(j) + ext
                 _path = os.path.join(path, str(j) + ext)
 
                 if not 'img-ctguide-white.png' in url:  # 컷툰이미지 제거하기

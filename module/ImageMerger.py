@@ -60,9 +60,14 @@ class ImageMerger:
                           for im in im_list]
         return cv2.vconcat(im_list_resize)
 
-     # 코드 참고 : https://stackoverflow.com/questions/53876007/how-to-vertically-merge-two-images
+    # 코드 참고 : https://stackoverflow.com/questions/53876007/how-to-vertically-merge-two-images
+    #  실제로 구현해야 하는 함수
     def _processing(self, file_lst: list):
         try:
+            # 파일리스트가 비었으면 아무것도 하지 않는다.
+            if not file_lst:
+                return
+
             rel_base_path = os.path.dirname(file_lst[0])  # 웹툰이 저장되어 있는 폴더 경로
             base_path = os.path.abspath(rel_base_path)  # 절대경로로 변환
             print("기반 경로 : ", base_path)
@@ -84,6 +89,9 @@ class ImageMerger:
 
             img_lst = []
             for image_file in file_lst:
+                # 소문자로 변환
+                image_file = image_file.lower()
+
                 # 이미지 읽기 (이미지 파일인경우만 수행)
                 if image_file.endswith('.png') or image_file.endswith('.jpg') or image_file.endswith('.jpeg'):
                     print("이미지 파일 : ", image_file)
