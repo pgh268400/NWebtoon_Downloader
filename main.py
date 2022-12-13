@@ -46,7 +46,8 @@ if __name__ == "__main__":
 
         if dialog.find('-') == -1:  # 숫자만 입력했을때
             download_number = dialog
-            webtoon.single_download(download_number)
+            # webtoon.single_download(download_number)
+            webtoon.multi_download(f"{download_number}-{download_number}")
         elif int(dialog.split('-')[1]) > webtoon.number:  # 최대화수 초과했을때
             input("최대화수를 초과했습니다")
         else:  # 일반 다운로드일때

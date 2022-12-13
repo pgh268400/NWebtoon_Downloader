@@ -180,7 +180,7 @@ class NWebtoon:
             print(url)
         input('다운로드가 완료되었습니다.')
 
-    def multi_download(self, dialog):
+    def multi_download(self, dialog : str):
         global download_index
 
         # 멀티 프로세싱을 이용한 병렬 다운로드 처리
