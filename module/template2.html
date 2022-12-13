@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{title}}</title>
+    <style>
+      .webtoon_viewer {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- 태그를 화면 정중앙에 위치 -->
+    <div class="webtoon_viewer">
+      <!-- Use jinja2 formatting -->
+      <h1>{{title}}</h1>
+
+      <!-- 끝에 "-" 는 반복하면서 newline 을 출력하지 않겠다고 명시하는 것. 그냥 끝을 %로 써도 됨. -->
+      {% for path, name in item_lst -%}
+      <a href="{{path}}">{{name}}</a>
+      {% endfor -%}
+    </div>
+  </body>
+</html>

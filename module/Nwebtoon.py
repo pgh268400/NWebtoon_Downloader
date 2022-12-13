@@ -104,15 +104,13 @@ class NWebtoon:
         cleaner = re.compile('<.*?>|&([a-z0-9]+|#[0-9]{1,6}|#x[0-9a-f]{1,6});')
         string = re.sub(cleaner, '', string)
 
-        # 끝에 . 제거 ex) test... -> test
-        while string[-1] == '.':
-            string = string[:-1]
-
         # 폴더에 저장할 수 없는 문자 제거
         non_directory_letter = []
         if os.name == 'nt':
-            non_directory_letter = ['/', ':', '*',
-                                    '?', '<', '>', '|']  # 경로 금지 문자열 제거
+            # non_directory_letter = ['/', ':', '*',
+            #                         '?', '<', '>', '|']  # 경로 금지 문자열 제거
+            non_directory_letter = ['\\', '/',
+                                    ':', '*', '?', '"', '<', '>', '|']
         elif os.name == 'posix':
             non_directory_letter = [':', '*',
                                     '?', '<', '>', '|']  # 경로 금지 문자열 제거 (리눅스에선 / 가 경로 구분자라 제거하지 않음)
@@ -120,6 +118,14 @@ class NWebtoon:
         for char in non_directory_letter:
             if char in string:
                 string = string.replace(char, "")
+
+        # \t 과 \n제거 (\t -> 공백 , \n -> 공백)
+        table = str.maketrans('\t\n', "  ")
+        string = string.translate(table)
+
+        # 끝에 . 제거 ex) test... -> test
+        while string[-1] == '.':
+            string = string[:-1]
         return string
 
     def tag_remover(self, string):
@@ -141,8 +147,6 @@ class NWebtoon:
     # 단일 이미지 다운로드
     def single_download(self, args):
         print(args, '화 다운로드 시작되었습니다')
-        # url = "https://comic.naver.com/" + self.__wtype + \
-        #     "/detail.nhn?titleId=" + self.__title_id + "&no=" + args
         url = f"https://comic.naver.com/{self.__wtype}/detail.nhn?titleId={self.__title_id}&no={args}"
         req = requests.get(url)
         soup = BeautifulSoup(req.content, 'html.parser')
@@ -150,8 +154,9 @@ class NWebtoon:
         manga_title = soup.select('div.tit_area > div.view > h3')[
             0].get_text()  # 웹툰 제목 가져오기
         # 리스트를 string 으로 바꾸고 불필요한 string 제거한다.
-        manga_title = self.tag_remover(manga_title)
-        path = os.path.join(self.__title, manga_title)
+        manga_title = self.filename_remover(manga_title)
+        directory_title = self.filename_remover(self.__title)
+        path = os.path.join(directory_title, manga_title)
 
         try:
             print("path : ", path)
@@ -192,8 +197,6 @@ class NWebtoon:
         global download_index
         result = []
         for i in range(int(args[0]), int(args[1]) + 1):
-            # url = "https://comic.naver.com/" + self.__wtype + \
-            #     "/detail.nhn?titleId=" + self.__title_id + "&no=" + str(i)
             # fstring으로 변경
             url = f"https://comic.naver.com/{self.__wtype}/detail.nhn?titleId={self.__title_id}&no={i}"
 
@@ -210,9 +213,11 @@ class NWebtoon:
             idx = f"[{download_index}] "
 
             # running_path = os.path.abspath(os.path.dirname(__file__))
-            img_path = os.path.join(self.__title, idx + manga_title)
+            directory_title = self.filename_remover(self.__title)
+            img_path = os.path.join(directory_title, idx + manga_title)
 
-            path = self.filename_remover(img_path)
+            # path = self.filename_remover(img_path)
+            path = img_path
 
             # print title, idx, manga_title
             # print("title : ", self.__title, "idx : ",
@@ -266,26 +271,26 @@ class NWebtoon:
                 break
 
     # Getter 함수 구현 (프로퍼티)
-    @property
+    @ property
     def title(self):
         return self.__title
 
-    @property
+    @ property
     def title_id(self):
         return self.__title_id
 
-    @property
+    @ property
     def content(self):
         return self.__content
 
-    @property
+    @ property
     def wtype(self):
         return self.__wtype
 
-    @property
+    @ property
     def isadult(self):
         return self.__isadult
 
-    @property
+    @ property
     def number(self):
         return self.__number
