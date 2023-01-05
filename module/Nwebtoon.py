@@ -100,32 +100,42 @@ class NWebtoon:
 
     # 경로 금지 문자 제거, HTML문자 제거
     def filename_remover(self, string):
+
         # <tag>, &nbsp 등등 제거
         cleaner = re.compile('<.*?>|&([a-z0-9]+|#[0-9]{1,6}|#x[0-9a-f]{1,6});')
         string = re.sub(cleaner, '', string)
 
         # 폴더에 저장할 수 없는 문자 제거
-        non_directory_letter = []
-        if os.name == 'nt':
-            # non_directory_letter = ['/', ':', '*',
-            #                         '?', '<', '>', '|']  # 경로 금지 문자열 제거
-            non_directory_letter = ['\\', '/',
-                                    ':', '*', '?', '"', '<', '>', '|']
-        elif os.name == 'posix':
-            non_directory_letter = [':', '*',
-                                    '?', '<', '>', '|']  # 경로 금지 문자열 제거 (리눅스에선 / 가 경로 구분자라 제거하지 않음)
+        # non_directory_letter = []
+        # if os.name == 'nt':
+        #     # non_directory_letter = ['/', ':', '*',
+        #     #                         '?', '<', '>', '|']  # 경로 금지 문자열 제거
+        #     non_directory_letter = ['\\', '/',
+        #                             ':', '*', '?', '"', '<', '>', '|']
 
-        for char in non_directory_letter:
-            if char in string:
-                string = string.replace(char, "")
+        #     # non_directory_dict = {'\\', '/',
+        #     #                       ':': '\U000002f8', '*': '⚹', '?', '"', '<', '>', '|'}
+        # elif os.name == 'posix':
+        #     non_directory_letter = [':', '*',
+        #                             '?', '<', '>', '|']  # 경로 금지 문자열 제거 (리눅스에선 / 가 경로 구분자라 제거하지 않음)
+
+        # for char in non_directory_letter:
+        #     if char in string:
+        #         string = string.replace(char, "")
+
+        # 폴더에 들어갈 수 없는 특수문자를 들어갈 수 있는
+        # 특수한 유니코드 문자 (겉보기에 똑같은 문자)로 치환 시킨다.
+        table = str.maketrans('\\/:*?"<>|.', "￦／：＊？＂˂˃｜．")
+        string = string.translate(table)
 
         # \t 과 \n제거 (\t -> 공백 , \n -> 공백)
         table = str.maketrans('\t\n', "  ")
         string = string.translate(table)
 
         # 끝에 . 제거 ex) test... -> test
-        while string[-1] == '.':
-            string = string[:-1]
+        # while string[-1] == '.':
+        #     string = string[:-1]
+        # return string
         return string
 
     def tag_remover(self, string):
@@ -180,8 +190,11 @@ class NWebtoon:
             print(url)
         input('다운로드가 완료되었습니다.')
 
-    def multi_download(self, dialog : str):
+    def multi_download(self, dialog: str):
         global download_index
+
+        # dialog example
+        # 1-10
 
         # 멀티 프로세싱을 이용한 병렬 다운로드 처리
         download_index = int(dialog.split('-')[0])
