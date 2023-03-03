@@ -180,7 +180,7 @@ class NWebtoon:
             print(f"[상위 5개] ---- 총 {webtoon_cnt}개")
             webtoon_result = self.search_api_parser(res_json, "webtoon")
             for element in webtoon_result:
-                print(f"{global_i}.{element[0]}")
+                print(f"[bold red]{global_i}.[/bold red] {element[0]}")
                 global_i += 1
 
             print(f'[bold green]-----베스트 도전 검색결과-----[/bold green]')
@@ -188,14 +188,14 @@ class NWebtoon:
             best_challenge_result = self.search_api_parser(
                 res_json, "best_challenge")
             for element in best_challenge_result:
-                print(f"{global_i}.{element[0]}")
+                print(f"[bold red]{global_i}.[/bold red] {element[0]}")
                 global_i += 1
 
             print(f'[bold green]-----도전만화 검색결과-----[/bold green]')
             print(f"[상위 5개] ---- 총 {challenge_cnt}개")
             challenge_result = self.search_api_parser(res_json, "challenge")
             for element in challenge_result:
-                print(f"{global_i}.{element[0]}")
+                print(f"[bold red]{global_i}.[/bold red] {element[0]}")
                 global_i += 1
 
             all_result = webtoon_result + best_challenge_result + \

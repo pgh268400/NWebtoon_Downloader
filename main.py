@@ -10,11 +10,13 @@ from rich.style import Style
 
 import os
 
+# 콘솔창 타이틀 변경 (윈도우 전용)
+WINDOW_TITLE = "NWebtoon Downloader v5-NEW"
 
 # OS가 윈도우인 경우만 타이틀 변경 허용 (리눅스에선 아래 코드가 동작하지 않음)
 if os.name == 'nt':
     import ctypes
-    ctypes.windll.kernel32.SetConsoleTitleW("NWebtoon Downloader v4.3")
+    ctypes.windll.kernel32.SetConsoleTitleW(WINDOW_TITLE)
 
 # 이미지 병합 Class
 if __name__ == "__main__":
