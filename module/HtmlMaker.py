@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 import chardet
 from .ImageMerger import ImageMerger
@@ -47,8 +48,11 @@ class HtmlMaker(ImageMerger):
                 return
 
             rel_base_path = os.path.dirname(file_lst[0])  # 웹툰이 저장되어 있는 폴더 경로
-            base_path = os.path.abspath(rel_base_path)  # 절대경로로 변환
+            base_path: str = os.path.abspath(rel_base_path)  # 절대경로로 변환
             print("기반 경로 : ", base_path)
+
+            # 폴더명에서 숫자만 추출 (몇화를 작업하고 있는지 숫자 저장)
+            numbers = int(re.findall(r'\[(\d+)\]', base_path)[0])
 
             # 기존에 생성한 index.html을 삭제한다.
             output_path = os.path.join(base_path, 'index.html')
@@ -65,8 +69,6 @@ class HtmlMaker(ImageMerger):
                 # file 소문자로 변환
                 file = file.lower()
 
-                
-
                 # 이미지 파일이고, output.png가 아닌 경우만 추가한다.
                 if file.endswith('output.png'):
                     continue
@@ -76,10 +78,34 @@ class HtmlMaker(ImageMerger):
 
             # print(img_lst)
 
+            # 부모 경로에서 [다음화] 로 시작하는 폴더 이름을 가져온다.
+            parent_path = os.path.dirname(base_path)
+            next_folder_name = next((folder for folder in os.listdir(
+                parent_path) if folder.startswith(f'[{numbers+1}]')), None)
+
+            print(parent_path)
+
+            if next_folder_name:
+                next_web = os.path.join("../", next_folder_name, "index.html")
+            else:
+                # print("[다음화]로 시작하는 폴더를 찾지 못했습니다.")
+                next_web = "javascript:alert('마지막화 입니다.');"
+
+            # 부모 경로에서 [이전화] 로 시작하는 폴더 이름을 가져온다.
+            parent_path = os.path.dirname(base_path)
+            prev_folder_name = next((folder for folder in os.listdir(
+                parent_path) if folder.startswith(f'[{numbers-1}]')), None)
+
+            if prev_folder_name:
+                prev_web = os.path.join("../", prev_folder_name, "index.html")
+            else:
+                # print("[이전화]로 시작하는 폴더를 찾지 못했습니다.")
+                prev_web = "javascript:alert('처음화 입니다.');"
+
             # template.html을 읽고, 데이터를 채운다.
             html_data = self.__read_file("./module/template.html")
             html_data = Template(html_data).render(
-                title=self.__title, episode=episode, img_lst=img_lst)
+                title=self.__title, episode=episode, img_lst=img_lst, prev=prev_web, next=next_web)
 
             # index.html 파일을 생성한다.
             index_path = os.path.join(base_path, 'index.html')

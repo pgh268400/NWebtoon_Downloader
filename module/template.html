@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{{title}}</title>
     <style>
+      /* 뷰어 */
       .webtoon_viewer {
         height: 100%;
         display: flex;
@@ -13,9 +14,42 @@
         align-items: center;
         justify-content: center;
       }
+
+      /* 리모콘 */
+      #remote {
+        width: 200px;
+        height: 200px;
+        position: absolute;
+        z-index: 9;
+        background-color: #f1f1f1;
+        border: 1px solid #d3d3d3;
+        text-align: center;
+        right: 20px;
+        top: 50%;
+        transform: translateY(-50%);
+      }
+
+      #remoteheader {
+        padding: 10px;
+        cursor: move;
+        z-index: 10;
+        background-color: #2196f3;
+        color: #fff;
+      }
     </style>
   </head>
   <body>
+    <!-- 네이버 웹툰 사이트에 존재하던 리모콘 -->
+    <!-- Draggable DIV -->
+    <div id="remote">
+      <!-- Include a header DIV with the same name as the draggable DIV, followed by "header" -->
+      <div id="remoteheader">리모콘</div>
+      <p>{{title}}</p>
+      <p>{{episode}}</p>
+      <a href="{{prev}}">이전화</a>
+      <a href="{{next}}">다음화</a>
+    </div>
+
     <!-- 태그를 화면 정중앙에 위치 -->
     <div class="webtoon_viewer">
       <!-- Use jinja2 formatting -->
@@ -30,5 +64,54 @@
         <a href="{{next}}">다음화</a>
       </div>
     </div>
+    <script>
+      // Make the DIV element draggable:
+      set_drag_element(document.getElementById("remote"));
+
+      function set_drag_element(element) {
+        var pos1 = 0,
+          pos2 = 0,
+          pos3 = 0,
+          pos4 = 0;
+        if (document.getElementById(element.id + "header")) {
+          // if present, the header is where you move the DIV from:
+          document.getElementById(element.id + "header").onmousedown =
+            dragMouseDown;
+        } else {
+          // otherwise, move the DIV from anywhere inside the DIV:
+          element.onmousedown = dragMouseDown;
+        }
+
+        function dragMouseDown(e) {
+          e = e || window.event;
+          e.preventDefault();
+          // get the mouse cursor position at startup:
+          pos3 = e.clientX;
+          pos4 = e.clientY;
+          document.onmouseup = closeDragElement;
+          // call a function whenever the cursor moves:
+          document.onmousemove = elementDrag;
+        }
+
+        function elementDrag(e) {
+          e = e || window.event;
+          e.preventDefault();
+          // calculate the new cursor position:
+          pos1 = pos3 - e.clientX;
+          pos2 = pos4 - e.clientY;
+          pos3 = e.clientX;
+          pos4 = e.clientY;
+          // set the element's new position:
+          element.style.top = element.offsetTop - pos2 + "px";
+          element.style.left = element.offsetLeft - pos1 + "px";
+        }
+
+        function closeDragElement() {
+          // stop moving when mouse button is released:
+          document.onmouseup = null;
+          document.onmousemove = null;
+        }
+      }
+    </script>
   </body>
 </html>

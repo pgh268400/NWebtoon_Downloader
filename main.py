@@ -4,20 +4,25 @@ from module.ImageMerger import *
 from sys import exit
 # 웹툰 다운로드 Class
 from module.Nwebtoon import *
+from rich import print
+from rich.markup import escape
+from rich.style import Style
+
 import os
+
 
 # OS가 윈도우인 경우만 타이틀 변경 허용 (리눅스에선 아래 코드가 동작하지 않음)
 if os.name == 'nt':
     import ctypes
-    ctypes.windll.kernel32.SetConsoleTitleW("NWebtoon Downloader v4.2")
+    ctypes.windll.kernel32.SetConsoleTitleW("NWebtoon Downloader v4.3")
 
 # 이미지 병합 Class
 if __name__ == "__main__":
-    print("::NWebtoon Downloader::")
+    print("::[bold green]NWebtoon Downloader[/bold green]::")
     print('<모드를 선택해주세요>')
-    print('d : 다운로드')
-    print('m : 이미지 병합')
-    # print('h : HTML 생성')
+    print('[magenta]d[/magenta] : 다운로드')
+    print('[magenta]m[/magenta] : 이미지 병합')
+    # print('[magenta]h[/magenta] : HTML 생성')
     dialog = input('>>> ')
     if dialog.lower() == 'd':
         query = input("정보를 입력해주세요(웹툰ID, URL, 웹툰제목) : ")
@@ -29,17 +34,18 @@ if __name__ == "__main__":
             exit()
 
         print('-------------------------------')
-        print(f"웹툰명 : {webtoon.title}")
-        print(f"총화수 : {webtoon.number}화")
-        print(f"종류 : {webtoon.wtype}")
+        print(f"[bold green]웹툰명[/bold green] : {webtoon.title}")
+        print(f"[bold green]총화수[/bold green] : {webtoon.number}화")
+        print(f"[bold green]종류[/bold green] : {webtoon.wtype}")
         print(webtoon.content)
         print('-------------------------------')
 
-        if webtoon.isadult:
-            print('성인 웹툰입니다. 로그인 정보를 입력해주세요.')
-            NID_AUT = input("NID_AUT : ")
-            NID_SES = input("NID_SES : ")
-            webtoon.set_session(NID_AUT, NID_SES)  # 객체에 세션 데이터 넘기기
+        # 이 부분은 이제 webtoon 객체가 안에서 스스로 먼저 처리함.
+        # if webtoon.isadult:
+        #     print('성인 웹툰입니다. 로그인 정보를 입력해주세요.')
+        #     NID_AUT = input("NID_AUT : ")
+        #     NID_SES = input("NID_SES : ")
+        #     webtoon.set_session(NID_AUT, NID_SES)  # 객체에 세션 데이터 넘기기
 
         dialog = input('몇화부터 몇화까지 다운로드 받으시겠습니까? 예) 1-10 , 5: ')
         dialog = dialog.strip()
@@ -61,11 +67,11 @@ if __name__ == "__main__":
         image.run()
         input('작업이 완료되었습니다.')
     elif dialog.lower() == 'h':
+        print("히든 기능 발견! 해당 기능은 아직 개발중입니다. 버그 발생해도 책임지지 않습니다.")
         path = input("HTML을 생성할 웹툰 경로를 입력해주세요 : ")
         html = HtmlMaker(path)
         html.print_lists()
         html.run()
         input('작업이 완료되었습니다.')
-
     else:
         input('올바르지 않은 입력입니다.')

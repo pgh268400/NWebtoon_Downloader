@@ -1,14 +1,18 @@
 import errno
+import json
 import multiprocessing
 import os
 import re
 from multiprocessing.pool import ThreadPool
 from time import sleep
 from urllib import parse
-
+from rich import print
 import requests
 from bs4 import BeautifulSoup
 from requests import get
+
+# 경로는 main.py의 위치를 기준으로 import함에 주의
+from module.Headers import headers
 
 download_index = 1
 
@@ -40,62 +44,166 @@ class NWebtoon:
             else:  # 검색어면
                 self.__title_id = self.search(query)
 
-        req = requests.get(
-            "https://comic.naver.com/webtoon/list.nhn?titleId=" + self.__title_id)
-        soup = BeautifulSoup(req.content, 'html.parser')
+        res = requests.get(
+            f"https://comic.naver.com/api/article/list/info?titleId={self.__title_id}")
+
+        soup = BeautifulSoup(res.content, 'html.parser')
+
+        # json.loads()를 사용하여 JSON 응답을 파이썬 객체로 변환
+        res_json = json.loads(res.content)
 
         # title = 제목, num = 총화수, content = 웹툰 설명, type = 웹툰 타입, isadult = 성인웹툰 유무
         # 파이썬의 private 키워드 __ 를 통해 캡슐화를 구현하도록 하자.
 
-        self.__title = soup.find("meta", property="og:title")[
-            "content"]  # 타이틀 가져오기
-        self.__content = soup.find("meta", property="og:description")[
-            'content']  # 컨텐츠 가져오기
+        # print(res_json)
 
-        table = soup.select("tr > td.title > a")[
-            0]['onclick']  # a태그의 onclick 항목 가져오기
-        # 총화수를 구하기위해 onclick을 , 로 쪼개고 쓸모없는 부분을 Replace로 날린다.
-        self.__number = table.split(',')[3].replace(")", "")
-        self.__number = int(self.__number.replace("'", ""))  # int 형식으로 변환한다.
+        self.__title = res_json["titleName"]  # 웹툰 제목
+        self.__content = res_json["synopsis"]  # 컨텐츠 가져오기
+        # 웹툰 타입 : webtoon / challenge / bestChallenge : url에서 사용하는 것
+        self.__wtype = res_json["webtoonLevelCode"]
+        if self.__wtype == "WEBTOON":
+            self.__wtype = "webtoon"
+        elif self.__wtype == "CHALLENGE":
+            self.__wtype = "challenge"
+        elif self.__wtype == "BEST_CHALLENGE":
+            self.__wtype = "bestChallenge"
 
-        self.__wtype = soup.select('td.title > a')[0]['href']
-        self.__wtype = self.__wtype.split('/')[1]
+        # no에 아주 큰 값을 넣어서 리다이렉션되는 페이지에서 접근가능한 총화수를 가져옴
+        res = requests.get(
+            f"https://comic.naver.com/{self.__wtype}/detail?titleId={self.__title_id}&no=999999", allow_redirects=True)
+        # print(
+        #     f"https://comic.naver.com/{self.__wtype}/detail?titleId={self.__title_id}&no=999999")
+        redirected_url = res.url
 
-        adult_parse = soup.select(".mark_adult_thumb")
-        self.__isadult = False
-        if len(adult_parse) != 0:
+        # 웹툰 리다이렉트 주소가 로그인 주소인 경우 성인웹툰임
+        if ("https://nid.naver.com/nidlogin.login" in redirected_url):
             self.__isadult = True
 
+            # NID_AUT, NID_SES 쿠키를 받아서 다시 요청
+            print('성인 웹툰입니다. 로그인 정보를 입력해주세요.')
+            NID_AUT = input("NID_AUT : ")
+            NID_SES = input("NID_SES : ")
+            self.set_session(NID_AUT, NID_SES)  # 객체에 세션 데이터 넘기기
+
+            cookies = {"NID_AUT": NID_AUT, "NID_SES": NID_SES}
+            res = requests.get(
+                f"https://comic.naver.com/{self.__wtype}/detail?titleId={self.__title_id}&no=999999", cookies=cookies, allow_redirects=True)
+            redirected_url = res.url
+
+        # url에서 no 부분만 가져오기
+        match = re.search(r'no=(\d+)', redirected_url)
+
+        if match:
+            # 웹툰 총 화수 (반드시 int타입 이여야함.)
+            self.__number = int(match.group(1))
+        else:
+            input("Error : No match found.")
+            return
+
+        adult_parse = res_json["age"]["type"]
+
+        if adult_parse == "RATE_18":
+            self.__isadult = True
+        else:
+            self.__isadult = False
+
     def set_session(self, NID_AUT, NID_SES):
-        # NID_AUT, NID_SES 가져오기
+        # NID_AUT, NID_SES 설정하기
         self.NID_AUT = NID_AUT
         self.NID_SES = NID_SES
 
+    # 웹툰 검색 API searchViewList 웹툰 / 도전만화 / 베스트도전 만화에 따라 파싱해주는 함수
+    def search_api_parser(self, res_json, type):
+        if type == "webtoon":
+            webtoon_lst = res_json["searchWebtoonResult"]["searchViewList"]
+        elif type == "best_challenge":
+            webtoon_lst = res_json["searchBestChallengeResult"]["searchViewList"]
+        elif type == "challenge":
+            webtoon_lst = res_json["searchChallengeResult"]["searchViewList"]
+
+        # enumerate() 함수는 기본적으로 인덱스와 원소로 이루어진 튜플(tuple)을 만들어준다
+        # ex) enumerate([1,2,3,4,5]) -> [(0,1), (1,2), (2,3), (3,4), (4,5)]
+        # enumerate() 함수의 두번째 인자는 인덱스의 시작값을 지정할 수 있다.
+        # ex) enumerate([1,2,3,4,5], 1) -> [(1,1), (2,2), (3,3), (4,4), (5,5)]
+        # 우리는 만들어진 튜플을 파이썬의 (,) unpacking 기능을 이용하여 인덱스와 원소를 각각의 변수에 저장할 것이다.
+        # 리스트를 반복하면서 인덱스를 활용하는 파이썬 스러운 방법이다! So cool!
+        # 라고 잘 적어놨으나 여기서 i 인덱스를 만들어줄 이유가 없어서 일단은.. enumerate() 함수의 원리만 이해하도록 하자 ㅎㅎ;
+        result = []
+        for i, search_view in enumerate(webtoon_lst, 1):
+            title_name = search_view['titleName']
+            display_author = search_view['displayAuthor']
+            genre_list = search_view['genreList']
+            article_total_count = search_view['articleTotalCount']
+            last_article_service_date = search_view['lastArticleServiceDate']
+            synopsis = search_view['synopsis']
+
+            genre_names = [genre['description'] for genre in genre_list]
+
+            output_str = f'{title_name}\n글/그림 : {display_author} | 장르 : {" / ".join(genre_names)} | 총 {article_total_count}화 | 최종 업데이트 {last_article_service_date}\n{synopsis}'
+            result.append((output_str, search_view['titleId']))
+
+        return result
+
     def search(self, keyword):
         lst = []
-        req = requests.get(
-            "https://comic.naver.com/search.nhn?keyword=" + keyword)
-        soup = BeautifulSoup(req.content, 'html.parser')
+        # 네이버 웹툰 개편으로 API 링크에 동적으로 요청해서 렌더링 하는 방식으로 바뀜 (2023-03-03)
+        # 웹툰 페이지에선 JS로 동적으로 로딩하므로 웹툰 페이지가 아니라 API 요청으로 검색 결과를 가져와야함.
+        # requests 는 JS 로딩한 데이터는 가져올 수 없고 단순히 요청 & 응답에 대한 데이터만 가져올 수 있기 때문 =ㅅ=
+
+        search_api_url = f"https://comic.naver.com/api/search/all?keyword={keyword}"
+        res = requests.get(search_api_url, headers=headers)
+
+        # json.loads()를 사용하여 JSON 응답을 파이썬 객체로 변환
+        res_json = json.loads(res.content)
+
+        # json.dumps()를 사용하여 파이썬 객체를 이쁘게 출력
+        # print(json.dumps(res_json, indent=4, ensure_ascii=False))
+
+        # 일반 웹툰, 베스트 도전, 도전만화 갯수 파싱
+        webtoon_cnt = res_json["searchWebtoonResult"]["totalCount"]
+        best_challenge_cnt = res_json["searchBestChallengeResult"]["totalCount"]
+        challenge_cnt = res_json["searchChallengeResult"]["totalCount"]
+
+        soup = BeautifulSoup(res.content, 'html.parser')
         txt = soup.select("#content > div:nth-child(2) > ul.resultList")
-        p = re.search('검색 결과가 없습니다.', str(txt))
-        if p:
+
+        if (webtoon_cnt + best_challenge_cnt + challenge_cnt) == 0:
             input('검색 결과가 없습니다.')
             return None
         else:  # 검색결과가 있을경우
-            txt = soup.find('ul', class_='resultList')
-            for string in txt.find_all('a'):
-                title = re.search('>(.*?)<', str(string))
-                if title:
-                    t = re.search('[0-9]{5,6}', string.get('href'))
-                    if t:
-                        lst.append([title.group(1), t.group()])
+            webtoon_lst = res_json["searchWebtoonResult"]["searchViewList"]
+            # print(webtoon_lst)
 
-            print('-----웹툰 검색결과-----')
-            for i, title in enumerate(lst):
-                print(f'{i} {self.tag_remover(title[0])}')
-            print('----------------------')
+            global_i = 1
+
+            print(f'[bold green]-----웹툰 검색결과-----[/bold green]')
+            print(f"[상위 5개] ---- 총 {webtoon_cnt}개")
+            webtoon_result = self.search_api_parser(res_json, "webtoon")
+            for element in webtoon_result:
+                print(f"{global_i}.{element[0]}")
+                global_i += 1
+
+            print(f'[bold green]-----베스트 도전 검색결과-----[/bold green]')
+            print(f"[상위 5개] ---- 총 {best_challenge_cnt}개")
+            best_challenge_result = self.search_api_parser(
+                res_json, "best_challenge")
+            for element in best_challenge_result:
+                print(f"{global_i}.{element[0]}")
+                global_i += 1
+
+            print(f'[bold green]-----도전만화 검색결과-----[/bold green]')
+            print(f"[상위 5개] ---- 총 {challenge_cnt}개")
+            challenge_result = self.search_api_parser(res_json, "challenge")
+            for element in challenge_result:
+                print(f"{global_i}.{element[0]}")
+                global_i += 1
+
+            all_result = webtoon_result + best_challenge_result + \
+                challenge_result  # use list comprehension
+
             index = int(input('선택할 웹툰의 번호를 입력해주세요 : '))
-            title_id = str(lst[index][1])
+            title_id = str(all_result[index - 1][1])
+            # print(f'선택한 웹툰의 title_id : {title_id}')
             return title_id
 
     # 경로 금지 문자 제거, HTML문자 제거
@@ -211,14 +319,15 @@ class NWebtoon:
         result = []
         for i in range(int(args[0]), int(args[1]) + 1):
             # fstring으로 변경
-            url = f"https://comic.naver.com/{self.__wtype}/detail.nhn?titleId={self.__title_id}&no={i}"
+            url = f"https://comic.naver.com/{self.__wtype}/detail?titleId={self.__title_id}&no={i}"
 
             cookies = {'NID_AUT': self.NID_AUT, 'NID_SES': self.NID_SES}
             req = requests.get(url, cookies=cookies)
             soup = BeautifulSoup(req.content, 'html.parser')
 
-            manga_title = soup.select(
-                'div.tit_area > div.view > h3')[0].get_text()  # 웹툰 제목 가져오기
+            manga_title = soup.select('#subTitle_toolbar')[
+                0].get_text()  # 웹툰 제목 가져오기
+            manga_title = manga_title.strip()  # 양 끝 공백 제거
             # 리스트를 string 으로 바꾸고 불필요한 string 제거한다.
             manga_title = self.filename_remover(manga_title)
 

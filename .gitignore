@@ -8,3 +8,4 @@
 !template*.html
 test.ipynb
 error_log.txt
+venv/
