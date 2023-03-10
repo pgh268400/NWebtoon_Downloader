@@ -199,38 +199,23 @@ class NWebtoon:
             print(f"[상위 5개] ---- 총 {webtoon_cnt}개")
             webtoon_result = self.search_api_parser(webtoon, "webtoon")
             for element in webtoon_result:
-<<<<<<< HEAD
                 print(f"[bold red]{i}.[/bold red] {element[0]}")
                 i += 1
-=======
-                print(f"[bold red]{global_i}.[/bold red] {element[0]}")
-                global_i += 1
->>>>>>> 7704a1e1c746d75f714059e48ee620baacae940f
 
             print(f'[bold green]-----베스트 도전 검색결과-----[/bold green]')
             print(f"[상위 5개] ---- 총 {best_challenge_cnt}개")
             best_challenge_result = self.search_api_parser(
                 webtoon, "bestChallenge")
             for element in best_challenge_result:
-<<<<<<< HEAD
                 print(f"[bold red]{i}.[/bold red] {element[0]}")
                 i += 1
-=======
-                print(f"[bold red]{global_i}.[/bold red] {element[0]}")
-                global_i += 1
->>>>>>> 7704a1e1c746d75f714059e48ee620baacae940f
 
             print(f'[bold green]-----도전만화 검색결과-----[/bold green]')
             print(f"[상위 5개] ---- 총 {challenge_cnt}개")
             challenge_result = self.search_api_parser(webtoon, "challenge")
             for element in challenge_result:
-<<<<<<< HEAD
                 print(f"[bold red]{i}.[/bold red] {element[0]}")
                 i += 1
-=======
-                print(f"[bold red]{global_i}.[/bold red] {element[0]}")
-                global_i += 1
->>>>>>> 7704a1e1c746d75f714059e48ee620baacae940f
 
             all_result = webtoon_result + best_challenge_result + \
                 challenge_result  # use list comprehension
