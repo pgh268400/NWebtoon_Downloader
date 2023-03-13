@@ -70,18 +70,21 @@ class NWebtoonMainData:
     curationTagList: List[CurationTag] = field(default_factory=list)
     adBannerList: List[dict] = field(default_factory=list)
 
-# json 모듈을 이용하여 JSON 문자열을 파이썬 딕셔너리로 변환
 
+# 직접 실행했을때만 실행되는 코드 (import 되었을때는 실행되지 않음, 모듈 단위 테스트용)
+if __name__ == "__main__":
+    # json 모듈을 이용하여 JSON 문자열을 파이썬 딕셔너리로 변환
 
-# with open('./type/test.json', encoding='utf-8') as f:
-#     data = json.load(f)
+    with open('./type/test.json', encoding='utf-8') as f:
+        data = json.load(f)
 
-# # str_json = json.dump(data)
+    # str_json = json.dump(data)
 
-# # .from_dict() 메서드를 이용하여 딕셔너리를 Webtoon 객체로 변환
+    # .from_dict() 메서드를 이용하여 딕셔너리를 Webtoon 객체로 변환
 
-# webtoon: NWebtoonMainData = NWebtoonMainData.from_dict(data)  # type: ignore
+    webtoon: NWebtoonMainData = NWebtoonMainData.from_dict(
+        data)  # type: ignore
 
-# # . 연산자로 nesting 되어 있는 속성들에 접근 가능
+    # . 연산자로 nesting 되어 있는 속성들에 접근 가능
 
-# print(webtoon.thumbnailUrl)  # H.C
+    print(webtoon.thumbnailUrl)  # H.C

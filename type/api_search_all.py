@@ -73,13 +73,14 @@ class NWebtoonSearchData:
     searchNbooksNovelResult: searchNbooksNovel = searchNbooksNovel()
 
 
-# with open('./type/test2.json', encoding='utf-8') as f:
-#     data = json.load(f)
+if __name__ == "__main__":
+    with open('./type/test2.json', encoding='utf-8') as f:
+        data = json.load(f)
 
-# # str_json = json.dump(data)
+    # str_json = json.dump(data)
 
-# # .from_dict() 메서드를 이용하여 딕셔너리를 Webtoon 객체로 변환
+    # .from_dict() 메서드를 이용하여 딕셔너리를 Webtoon 객체로 변환
 
-# webtoon: NWebtoonSearchData = NWebtoonSearchData.from_dict(data)
+    webtoon: NWebtoonSearchData = NWebtoonSearchData.from_dict(data)
 
-# print(webtoon.searchBestChallengeResult)
+    print(webtoon.searchBestChallengeResult)

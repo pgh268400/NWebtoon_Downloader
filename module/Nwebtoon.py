@@ -185,7 +185,9 @@ class NWebtoon:
             challenge_cnt = webtoon.searchChallengeResult.totalCount
 
             if (webtoon_cnt + best_challenge_cnt + challenge_cnt) == 0:
-                keyword = input('검색 결과가 없습니다. 다시 검색해주세요 : ')
+                keyword = ""
+                while not keyword.strip():
+                    keyword = input('검색 결과가 없습니다. 다시 검색해주세요 : ')
                 # exit()
             else:
                 break
