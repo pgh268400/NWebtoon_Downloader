@@ -168,75 +168,75 @@ class NWebtoon:
         # 웹툰 페이지에선 JS로 동적으로 로딩하므로 웹툰 페이지가 아니라 API 요청으로 검색 결과를 가져와야함.
         # requests 는 JS 로딩한 데이터는 가져올 수 없고 단순히 요청 & 응답에 대한 데이터만 가져올 수 있기 때문 =ㅅ=
 
-        search_api_url = f"https://comic.naver.com/api/search/all?keyword={keyword}"
-        res = requests.get(search_api_url, headers=headers)
+        while True:
+            search_api_url = f"https://comic.naver.com/api/search/all?keyword={keyword}"
+            res = requests.get(search_api_url, headers=headers)
 
-        # json.loads()를 사용하여 JSON 응답을 파이썬 객체로 변환
-        res_json = json.loads(res.content)
+            # json.loads()를 사용하여 JSON 응답을 파이썬 객체로 변환
+            res_json = json.loads(res.content)
 
-        # json 응답을 미리 정의한 dataclass 타입으로 변환(type-safety)
-        webtoon: NWebtoonSearchData = NWebtoonSearchData.from_dict(  # type: ignore
-            res_json)
+            # json 응답을 미리 정의한 dataclass 타입으로 변환(type-safety)
+            webtoon: NWebtoonSearchData = NWebtoonSearchData.from_dict(  # type: ignore
+                res_json)
 
-        # 일반 웹툰, 베스트 도전, 도전만화 갯수 파싱
-        webtoon_cnt = webtoon.searchWebtoonResult.totalCount
-        best_challenge_cnt = webtoon.searchBestChallengeResult.totalCount
-        challenge_cnt = webtoon.searchChallengeResult.totalCount
+            # 일반 웹툰, 베스트 도전, 도전만화 갯수 파싱
+            webtoon_cnt = webtoon.searchWebtoonResult.totalCount
+            best_challenge_cnt = webtoon.searchBestChallengeResult.totalCount
+            challenge_cnt = webtoon.searchChallengeResult.totalCount
 
-        soup = BeautifulSoup(res.content, 'html.parser')
-        txt = soup.select("#content > div:nth-child(2) > ul.resultList")
+            if (webtoon_cnt + best_challenge_cnt + challenge_cnt) == 0:
+                keyword = input('검색 결과가 없습니다. 다시 검색해주세요 : ')
+                # exit()
+            else:
+                break
 
-        if (webtoon_cnt + best_challenge_cnt + challenge_cnt) == 0:
-            input('검색 결과가 없습니다.')
-            exit()
-        else:  # 검색결과가 있을경우
-            # webtoon_lst = res_json["searchWebtoonResult"]["searchViewList"]
-            # print(webtoon_lst)
+        # webtoon_lst = res_json["searchWebtoonResult"]["searchViewList"]
+        # print(webtoon_lst)
 
-            i = 1
+        i = 1
 
-            print(f'[bold green]-----웹툰 검색결과-----[/bold green]')
-            print(f"[상위 5개] ---- 총 {webtoon_cnt}개")
-            webtoon_result = self.search_api_parser(webtoon, "webtoon")
-            for element in webtoon_result:
-                print(f"[bold red]{i}.[/bold red] {element[0]}")
-                i += 1
+        print(f'[bold green]-----웹툰 검색결과-----[/bold green]')
+        print(f"[상위 5개] ---- 총 {webtoon_cnt}개")
+        webtoon_result = self.search_api_parser(webtoon, "webtoon")
+        for element in webtoon_result:
+            print(f"[bold red]{i}.[/bold red] {element[0]}")
+            i += 1
 
-            print(f'[bold green]-----베스트 도전 검색결과-----[/bold green]')
-            print(f"[상위 5개] ---- 총 {best_challenge_cnt}개")
-            best_challenge_result = self.search_api_parser(
-                webtoon, "bestChallenge")
-            for element in best_challenge_result:
-                print(f"[bold red]{i}.[/bold red] {element[0]}")
-                i += 1
+        print(f'[bold green]-----베스트 도전 검색결과-----[/bold green]')
+        print(f"[상위 5개] ---- 총 {best_challenge_cnt}개")
+        best_challenge_result = self.search_api_parser(
+            webtoon, "bestChallenge")
+        for element in best_challenge_result:
+            print(f"[bold red]{i}.[/bold red] {element[0]}")
+            i += 1
 
-            print(f'[bold green]-----도전만화 검색결과-----[/bold green]')
-            print(f"[상위 5개] ---- 총 {challenge_cnt}개")
-            challenge_result = self.search_api_parser(webtoon, "challenge")
-            for element in challenge_result:
-                print(f"[bold red]{i}.[/bold red] {element[0]}")
-                i += 1
+        print(f'[bold green]-----도전만화 검색결과-----[/bold green]')
+        print(f"[상위 5개] ---- 총 {challenge_cnt}개")
+        challenge_result = self.search_api_parser(webtoon, "challenge")
+        for element in challenge_result:
+            print(f"[bold red]{i}.[/bold red] {element[0]}")
+            i += 1
 
-            all_result = webtoon_result + best_challenge_result + \
-                challenge_result  # use list comprehension
+        all_result = webtoon_result + best_challenge_result + \
+            challenge_result  # use list comprehension
 
-            msg = '>>> 선택할 웹툰의 번호를 입력해주세요 : '
-            while True:
-                try:
-                    index = int(input(msg))
-                    if 1 <= index <= len(all_result):
-                        break  # 정상 범위의 숫자를 입력했을 경우 while문 탈출
-                    else:
-                        msg = ">>> 범위를 벗어났습니다. 다시 입력해주세요 : "
-                except ValueError:
-                    # 숫자가 아닌 다른 문자를 입력했을 경우 index = int(input(msg)) 부분에서 바로 여기로 점프됨.
-                    msg = ">>> 숫자가 아닙니다. 다시 입력해주세요 : "
+        msg = '>>> 선택할 웹툰의 번호를 입력해주세요 : '
+        while True:
+            try:
+                index = int(input(msg))
+                if 1 <= index <= len(all_result):
+                    break  # 정상 범위의 숫자를 입력했을 경우 while문 탈출
+                else:
+                    msg = ">>> 범위를 벗어났습니다. 다시 입력해주세요 : "
+            except ValueError:
+                # 숫자가 아닌 다른 문자를 입력했을 경우 index = int(input(msg)) 부분에서 바로 여기로 점프됨.
+                msg = ">>> 숫자가 아닙니다. 다시 입력해주세요 : "
 
-            # 위의 반복문을 탈출했다는 것은 정상적인 범위의 숫자를 입력했음을 의미.
+        # 위의 반복문을 탈출했다는 것은 정상적인 범위의 숫자를 입력했음을 의미.
 
-            title_id = str(all_result[index - 1][1])
-            # print(f'선택한 웹툰의 title_id : {title_id}')
-            return title_id
+        title_id = str(all_result[index - 1][1])
+        # print(f'선택한 웹툰의 title_id : {title_id}')
+        return title_id
 
     # 경로 금지 문자 제거, HTML문자 제거
     def filename_remover(self, string: str) -> str:
