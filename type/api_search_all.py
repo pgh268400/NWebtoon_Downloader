@@ -1,6 +1,6 @@
 import json
 from typing import List, Optional
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
 
 from type.api_article_list_info_v2 import Age, Author
@@ -9,34 +9,34 @@ from type.api_article_list_info_v2 import Age, Author
 @dataclass_json
 @dataclass
 class searchView:
-    titleId: Optional[int] = None
-    titleName: Optional[str] = None
-    webtoonLevelCode: Optional[str] = None
-    thumbnailUrl: Optional[str] = None
-    displayAuthor: Optional[str] = None
-    author: Optional[Author] = None
-    synopsis: Optional[str] = None
-    finished: Optional[bool] = None
-    adult: Optional[bool] = None
-    nineteen: Optional[bool] = None
-    bm: Optional[bool] = None
-    up: Optional[bool] = None
-    rest: Optional[bool] = None
-    webtoonLevelUp: Optional[bool] = None
-    bestChallengeLevelUp: Optional[bool] = None
-    potenUp: Optional[bool] = None
-    articleTotalCount: Optional[int] = None
-    lastArticleServiceDate: Optional[str] = None
-    tagList: Optional[List[str]] = None
-    genreList: Optional[List[Age]] = None
-    new: Optional[bool] = None
+    titleId: int = 0
+    titleName: str = ""
+    webtoonLevelCode: str = ""
+    thumbnailUrl: str = ""
+    displayAuthor: str = ""
+    author: Author = Author()
+    synopsis: str = ""
+    finished: bool = False
+    adult: bool = False
+    nineteen: bool = False
+    bm: bool = False
+    up: bool = False
+    rest: bool = False
+    webtoonLevelUp: bool = False
+    bestChallengeLevelUp: bool = False
+    potenUp: bool = False
+    articleTotalCount: int = 0
+    lastArticleServiceDate: str = ""
+    tagList: List[str] = field(default_factory=list)
+    genreList: List[Age] = field(default_factory=list)
+    new: bool = False
 
 
 @dataclass_json
 @dataclass
 class searchBestChallenge:
-    totalCount: Optional[int] = None
-    searchViewList: Optional[List[searchView]] = None
+    totalCount: int = 0
+    searchViewList: List[searchView] = field(default_factory=list)
 
 
 @dataclass_json
@@ -66,11 +66,11 @@ class searchNbooksNovel(searchBestChallenge):
 @dataclass_json
 @dataclass
 class NWebtoonSearchData:
-    searchWebtoonResult: Optional[searchWebtoon] = None
-    searchBestChallengeResult: Optional[searchBestChallenge] = None
-    searchChallengeResult: Optional[searchChallenge] = None
-    searchNbooksComicResult: Optional[searchNbooksComic] = None
-    searchNbooksNovelResult: Optional[searchNbooksNovel] = None
+    searchWebtoonResult: searchWebtoon = searchWebtoon()
+    searchBestChallengeResult: searchBestChallenge = searchBestChallenge()
+    searchChallengeResult: searchChallenge = searchChallenge()
+    searchNbooksComicResult: searchNbooksComic = searchNbooksComic()
+    searchNbooksNovelResult: searchNbooksNovel = searchNbooksNovel()
 
 
 # with open('./type/test2.json', encoding='utf-8') as f:

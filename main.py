@@ -43,7 +43,15 @@ if __name__ == "__main__":
 
             dialog = input('몇화부터 몇화까지 다운로드 받으시겠습니까? 예) 1-10 , 5: ').strip()
 
-            if dialog.find('-') == -1:  # 숫자만 입력했을때
+            # 입력값 검증 "숫자" 또는 "숫자-숫자" 만 입력하도록
+            while (True):
+                if dialog.isdigit() or (dialog.find('-') != -1 and dialog.split('-')[0].isdigit() and dialog.split('-')[1].isdigit()):
+                    break
+                else:
+                    dialog = input('>>> 다시 입력해주세요. 예) 1-10 , 5: ').strip()
+
+            # 검증된 입력값에 대해 다운로드 진행
+            if dialog.find('-') == -1:  # 숫자만 입력했을때 ("-" 입력하지 않고 순수한 문자만 입력시)
                 download_number = int(dialog)
                 webtoon.multi_download(download_number, download_number)
                 input('다운로드가 완료되었습니다.')
