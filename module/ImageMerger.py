@@ -62,7 +62,7 @@ class ImageMerger:
 
     # 코드 참고 : https://stackoverflow.com/questions/53876007/how-to-vertically-merge-two-images
     #  실제로 구현해야 하는 함수
-    def _processing(self, file_lst: list):
+    def _processing(self, file_lst: list) -> None:
         try:
             # 파일리스트가 비었으면 아무것도 하지 않는다.
             if not file_lst:

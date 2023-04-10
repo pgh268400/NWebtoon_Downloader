@@ -16,12 +16,12 @@ import natsort
 
 
 class HtmlMaker(ImageMerger):
-    def __init__(self, path):
+    def __init__(self, path) -> None:
         super().__init__(path)  # 부모 생성자 호출
         self.__title = os.path.basename(path)  # 웹툰 제목
         self.__user_input_path = path  # 사용자가 입력한 경로
 
-    def __read_file(self, path):
+    def __read_file(self, path) -> str:
         # 파일 열어서 인코딩 확인
         rawdata = open(path, 'rb').read()
         result = chardet.detect(rawdata)
@@ -41,13 +41,14 @@ class HtmlMaker(ImageMerger):
     # ImagerMerger 오버라이딩으로 구현
     # 실제 run() 이 호출해서 처리해주는 함수
     # Python __ : private, _ : protected
-    def _processing(self, file_lst: list):
+    def _processing(self, file_lst: list) -> None:
         try:
             # 파일리스트가 비었으면 처리하지 않는다
             if not file_lst:
                 return
 
-            rel_base_path = os.path.dirname(file_lst[0])  # 웹툰이 저장되어 있는 폴더 경로
+            rel_base_path: str = os.path.dirname(
+                file_lst[0])  # 웹툰이 저장되어 있는 폴더 경로
             base_path: str = os.path.abspath(rel_base_path)  # 절대경로로 변환
             print("기반 경로 : ", base_path)
 

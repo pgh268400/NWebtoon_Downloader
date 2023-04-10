@@ -14,6 +14,7 @@ from requests import get
 
 # 경로는 main.py의 위치를 기준으로 import함에 주의
 from module.Headers import headers, image_headers
+from module.Settings import Setting
 from type.api_article_list_info_v2 import NWebtoonMainData
 from type.api_search_all import NWebtoonSearchData, searchView
 
@@ -298,8 +299,12 @@ class NWebtoon:
             # 리스트를 string 으로 바꾸고 불필요한 string 제거한다.
             manga_title = self.filename_remover(manga_title)
 
+            # 설정값 읽어오기 (폴더 제로필)
+            s = Setting()
+            folder_zfill_cnt = s.get_zero_fill('Folder')
+
             # idx = "[" + str(download_index) + "] "  # 순번매기기 형식 [0], [1]...
-            idx = f"[{download_index}] "
+            idx = f"[{str(download_index).zfill(folder_zfill_cnt)}] "
 
             # running_path = os.path.abspath(os.path.dirname(__file__))
             directory_title = self.filename_remover(self.__title)
@@ -331,12 +336,15 @@ class NWebtoon:
 
             image_url = soup.select('div.wt_viewer > img')
             j = 0
+
+            s = Setting()
+            image_zfill_cnt = s.get_zero_fill('Image')
             for img in image_url:
                 url = img['src']
 
                 parsed = parse.urlparse(url)
                 name, ext = os.path.splitext(parsed.path)
-                _path = os.path.join(path, str(j) + ext)
+                _path = os.path.join(path, str(j).zfill(image_zfill_cnt) + ext)
 
                 if not 'img-ctguide-white.png' in url:  # 컷툰이미지 제거하기
                     # URL,PATH 형식으로 List에 저장
