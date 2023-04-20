@@ -48,7 +48,7 @@ if __name__ == "__main__":
 
                 dialog = input('몇화부터 몇화까지 다운로드 받으시겠습니까? 예) 1-10 , 5: ').strip()
 
-                # 입력값 검증 "숫자" 또는 "숫자-숫자" 만 입력하도록
+                # 입력값 검증 : "숫자" 또는 "숫자-숫자" 만 입력하도록
                 while (True):
                     if dialog.isdigit() or (dialog.find('-') != -1 and dialog.split('-')[0].isdigit() and dialog.split('-')[1].isdigit()):
                         break
@@ -67,8 +67,8 @@ if __name__ == "__main__":
                 else:  # 일반 다운로드일때
                     download_number_lst = list(
                         map(int, dialog.split('-')))  # "1-2" -> [1,2]
-                    webtoon.multi_download(
-                        download_number_lst[0], download_number_lst[1])
+                    start, end = download_number_lst
+                    webtoon.multi_download(start, end)
                     input('다운로드가 완료되었습니다.')
             elif dialog.lower() == 'm':
                 path = input("병합할 웹툰 경로를 입력해주세요 : ")
@@ -91,4 +91,5 @@ if __name__ == "__main__":
                 os.system('cls' if os.name == 'nt' else 'clear')
         except Exception as e:
             print(e)
-            input("오류가 발생했습니다.")
+            input(
+                "오류가 발생했습니다. 미리 보기, 유료화된 화수 또한 전체 화수에 포함되니 그것을 제외한 화수를 입력해주세요. (네이버 웹툰 홈페이지에서 직접 확인 가능.)")

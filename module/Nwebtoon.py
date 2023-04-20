@@ -90,6 +90,8 @@ class NWebtoon:
             f"https://comic.naver.com/{self.__wtype}/detail?titleId={self.__title_id}&no=999999", allow_redirects=True)
         redirected_url = res.url
 
+        cookies = {}
+
         # 웹툰 리다이렉트 주소가 로그인 주소인 경우 성인웹툰임
         if ("https://nid.naver.com/nidlogin.login" in redirected_url):
             self.__isadult = True
@@ -101,21 +103,27 @@ class NWebtoon:
             self.set_session(NID_AUT, NID_SES)  # 객체에 세션 데이터 넘기기
 
             cookies = {"NID_AUT": NID_AUT, "NID_SES": NID_SES}
-            res = requests.get(
-                f"https://comic.naver.com/{self.__wtype}/detail?titleId={self.__title_id}&no=999999", cookies=cookies, allow_redirects=True)
-            redirected_url = res.url
+            # res = requests.get(
+            #     f"https://comic.naver.com/{self.__wtype}/detail?titleId={self.__title_id}&no=999999", cookies=cookies, allow_redirects=True)
+            # redirected_url = res.url
 
         # url에서 no 부분만 가져오기
         # ex) https://comic.naver.com/webtoon/detail?titleId=20853&no=100 -> 100
-        match = re.search(r'no=(\d+)', redirected_url)
+        # match = re.search(r'no=(\d+)', redirected_url)
 
-        if match:
-            # 웹툰 총 화수 (반드시 int타입 이여야함.)
-            self.__number = int(match.group(1))
-        else:
-            input(
-                "Error : 웹툰의 총 화수를 가져오지 못했습니다.\n성인웹툰이라면 NID_AUT, NID_SES의 오타 여부를, 일반 웹툰이라면 인터넷 연결 상태를 확인해주세요.")
-            exit()
+        # if match:
+        #     # 웹툰 총 화수 (반드시 int타입 이여야함.)
+        #     self.__number = int(match.group(1))
+        # else:
+        #     input(
+        #         "Error : 웹툰의 총 화수를 가져오지 못했습니다.\n성인웹툰이라면 NID_AUT, NID_SES의 오타 여부를, 일반 웹툰이라면 인터넷 연결 상태를 확인해주세요.")
+        #     exit()
+
+        res = requests.get(
+            f"https://comic.naver.com/api/article/list?titleId={self.__title_id}&page=1", cookies=cookies)
+        res_json: dict = json.loads(res.content)
+
+        self.__number = int(res_json['totalCount'])
 
         adult_parse = webtoon.age.type
         print(webtoon.age.type)
