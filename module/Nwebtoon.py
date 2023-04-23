@@ -284,8 +284,20 @@ class NWebtoon:
         # download_index = int(dialog.split('-')[0])
         download_index = start_index
         thread_count = multiprocessing.cpu_count() * 2
+
+        # 1. self.get_image_link 에서 이미지 링크를 동기적으로 일괄 추출해서 리스트로 제공하면
+        # 2. p_image_download 함수에 병렬적(비동기로 실행)으로 전달되어 다운로드가 처리됨.
+        # 3. 결과는 리스트로 반환되는데, 이 리스트는 순서가 보장되지 않음. (by imap_unordered)
+
+        # self.get_image_link 자체는 동기적으로 처리되기 때문에 이때 디렉토리 생성은 순서가 보장되며, 속도를 더 늘리고 싶다면
+        # self.get_image_link 함수 역시 병렬 처리로 코드를 변경하면 됨. (not for, but imap_unordered)
+        # 아직은 self.get_image_link 은 병렬 처리 하고 있지 않음.
+        # 결론적으로 네트워크 I/O에 의한 웹툰 다운로드 속도를 최대한 높이기 위해 이미지 다운로드를 하는 부분 p_image_download 만
+        # 병렬적으로 처리되고 있는 것.
+
         results = ThreadPool(thread_count).imap_unordered(self.p_image_download,
                                                           self.get_image_link(start_index, end_index))
+
         for link, path in results:
             print(link, path)
 
@@ -300,6 +312,12 @@ class NWebtoon:
             cookies = {'NID_AUT': self.NID_AUT, 'NID_SES': self.NID_SES}
             req = requests.get(url, cookies=cookies)
             soup = BeautifulSoup(req.content, 'html.parser')
+
+            # 만화가 없는 페이지일 경우 리스트에 추가하지 않음.
+            if not soup.select('#subTitle_toolbar'):
+                print(
+                    f'no={i}가 없습니다. 순번이 존재 하지 않거나 미리보기, 유료화된 페이지입니다. 다운로드 하지 않고 SKIP 합니다.')
+                continue
 
             manga_title = soup.select('#subTitle_toolbar')[
                 0].get_text()  # 웹툰 제목 가져오기
@@ -358,11 +376,16 @@ class NWebtoon:
                     # URL,PATH 형식으로 List에 저장
                     result.append([url, self.tag_remover(_path)])
                 j += 1
+
             download_index += 1
         return result
 
     # 다중 이미지 다운로드
     def p_image_download(self, data):
+
+        if not data:
+            return
+
         # 참고 : 이미지서버 자체는 로그인 여부 판단안함.
         for i in range(3):  # 총 3회 시도
             try:

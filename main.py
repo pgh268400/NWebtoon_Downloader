@@ -4,7 +4,7 @@ from module.ImageMerger import *
 from sys import exit
 # 웹툰 다운로드 Class
 from module.Nwebtoon import *
-from rich import print
+from rich import print  
 import os
 
 
@@ -18,7 +18,7 @@ if os.name == 'nt':
 
 # 이미지 병합 Class
 if __name__ == "__main__":
-
+    
     # 세팅 파일 없으면 자동 생성 & 값 읽기
     s = Setting()
 
