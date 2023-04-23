@@ -17,6 +17,7 @@ from module.Headers import headers, image_headers
 from module.Settings import Setting
 from type.api_article_list_info_v2 import NWebtoonMainData
 from type.api_search_all import NWebtoonSearchData, searchView
+from type.thread_pool_results import UrlPathTuple, UrlPathListResults
 
 download_index = 1  # 다운로드 인덱스 카운트
 
@@ -295,17 +296,18 @@ class NWebtoon:
         # 결론적으로 네트워크 I/O에 의한 웹툰 다운로드 속도를 최대한 높이기 위해 이미지 다운로드를 하는 부분 p_image_download 만
         # 병렬적으로 처리되고 있는 것.
 
-        results = ThreadPool(thread_count).imap_unordered(self.p_image_download,
-                                                          self.get_image_link(start_index, end_index))
+        results: UrlPathListResults = ThreadPool(thread_count).imap_unordered(self.p_image_download,
+                                                                              self.get_image_link(start_index, end_index))  # type: ignore
 
-        for link, path in results:
-            print(link, path)
+        for element in results:
+            print(element.img_url, element.path)
 
     # 이미지 링크 추출(경로 포함)
-    def get_image_link(self, start_index: int, end_index: int):
+    def get_image_link(self, start_index: int, end_index: int) -> list[UrlPathTuple]:
         global download_index
 
-        result = []
+        # 결과값을 저장할 리스트
+        result: UrlPathListResults = []
         for i in range(start_index, end_index + 1):
             # fstring으로 변경
             url = f"https://comic.naver.com/{self.__wtype}/detail?titleId={self.__title_id}&no={i}"
@@ -330,7 +332,10 @@ class NWebtoon:
             folder_zfill_cnt = s.get_zero_fill('Folder')
 
             # idx = "[" + str(download_index) + "] "  # 순번매기기 형식 [0], [1]...
-            idx = f"[{str(download_index).zfill(folder_zfill_cnt)}] "
+
+            # 현재 다운로드 인덱스 string으로 변환 후, 제로필(자릿수 0으로 채우기) 적용
+            z_fill_idx = str(download_index).zfill(folder_zfill_cnt)
+            idx = f"[{z_fill_idx}] "
 
             # running_path = os.path.abspath(os.path.dirname(__file__))
             directory_title = self.filename_remover(self.__title)
@@ -366,7 +371,7 @@ class NWebtoon:
             s = Setting()
             image_zfill_cnt = s.get_zero_fill('Image')
             for img in image_url:
-                url = img['src']
+                url = str(img['src'])
 
                 parsed = parse.urlparse(url)
                 name, ext = os.path.splitext(parsed.path)
@@ -374,23 +379,23 @@ class NWebtoon:
 
                 if not 'img-ctguide-white.png' in url:  # 컷툰이미지 제거하기
                     # URL,PATH 형식으로 List에 저장
-                    result.append([url, self.tag_remover(_path)])
+                    # Tuple[str, str]를 UrlPath로 변환하여 추가
+                    result.append(UrlPathTuple(url, self.tag_remover(_path)))
                 j += 1
 
             download_index += 1
         return result
 
     # 다중 이미지 다운로드
-    def p_image_download(self, data):
-
+    def p_image_download(self, data: UrlPathTuple) -> UrlPathTuple | None:
+        # 다운로드할 이미지가 없으면 빈 리스트를 다시 뱉고 다운로드를 수행하지 않는다.
         if not data:
-            return
-
+            return data
         # 참고 : 이미지서버 자체는 로그인 여부 판단안함.
         for i in range(3):  # 총 3회 시도
             try:
-                uri, path = data  # [URL, PATH] 형태로 들어온 리스트를 읽어냄
-                self.image_download(uri, path)
+                # (URL, PATH) 형태로 들어온 튜플을 읽어냄
+                self.image_download(data.img_url, data.path)
                 return data
             except requests.exceptions.ConnectionError:  # 커넥션 오류시(max retires)
                 print("연결 실패.. 다시 시도중..")
