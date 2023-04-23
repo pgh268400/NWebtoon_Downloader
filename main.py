@@ -4,12 +4,12 @@ from module.ImageMerger import *
 from sys import exit
 # 웹툰 다운로드 Class
 from module.Nwebtoon import *
-from rich import print  
+from rich import print
 import os
 
 
 # 콘솔창 타이틀 변경 (윈도우 전용)
-WINDOW_TITLE = "NWebtoon Downloader v5.2-NEW"
+WINDOW_TITLE = "NWebtoon Downloader v5.3-NEW"
 
 # OS가 윈도우인 경우만 타이틀 변경 허용 (리눅스에선 아래 코드가 동작하지 않음)
 if os.name == 'nt':
@@ -18,7 +18,7 @@ if os.name == 'nt':
 
 # 이미지 병합 Class
 if __name__ == "__main__":
-    
+
     # 세팅 파일 없으면 자동 생성 & 값 읽기
     s = Setting()
 
@@ -91,5 +91,4 @@ if __name__ == "__main__":
                 os.system('cls' if os.name == 'nt' else 'clear')
         except Exception as e:
             print(e)
-            input(
-                "오류가 발생했습니다. 미리 보기, 유료화된 화수 또한 전체 화수에 포함되니 그것을 제외한 화수를 입력해주세요. (네이버 웹툰 홈페이지에서 직접 확인 가능.)")
+            input("오류가 발생했습니다.")
