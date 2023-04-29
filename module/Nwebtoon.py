@@ -23,8 +23,8 @@ download_index = 1  # 다운로드 인덱스 카운트
 
 
 class NWebtoon:
-    ERROR_PATH = "./error_log.txt"  # 에러 로그 경로
-    DOWNLOAD_PATH = "./Webtoon_Download"  # 다운로드 경로
+    # ERROR_PATH = "./error_log.txt"  # 에러 로그 경로
+    # DOWNLOAD_PATH = "./Webtoon_Download"  # 다운로드 경로
 
     def __init__(self, query: str) -> None:
         """
@@ -34,6 +34,9 @@ class NWebtoon:
         :param query: 검색어
         """
         # 생성자에서 파이썬 인스턴스 변수 초기화
+
+        self.__settings = Setting()  # 설정 파일 관리 객체 생성
+
         # NID_AUT 와 NID_SES 는 나중에 get_session() 함수를 통해 받아올 것임.
         self.NID_SES: str = ""
         self.NID_AUT: str = ""
@@ -345,13 +348,13 @@ class NWebtoon:
             path = img_path
 
             # download_path 와 path 경로 합치기
-            path = os.path.join(NWebtoon.DOWNLOAD_PATH, path)
+            path = os.path.join(self.__settings.download_path, path)
 
             # print(f'[다운로드 경로] {path}')
 
             # download_path 폴더 없으면 생성
-            if not os.path.exists(NWebtoon.DOWNLOAD_PATH):
-                os.makedirs(NWebtoon.DOWNLOAD_PATH)
+            if not os.path.exists(self.__settings.download_path):
+                os.makedirs(self.__settings.download_path)
 
             # print title, idx, manga_title
             # print("title : ", self.__title, "idx : ",
@@ -406,7 +409,7 @@ class NWebtoon:
                 input("오류가 발생하여 오류를 파일에 기록합니다.")
                 error = str(ex)
                 input(error)
-                with open(NWebtoon.ERROR_PATH, "a") as file:  # append 모드
+                with open(self.__settings.error_path, "a") as file:  # append 모드
                     file.write(error)
                     file.close()
                 break

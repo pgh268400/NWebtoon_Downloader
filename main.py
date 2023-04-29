@@ -27,6 +27,7 @@ if __name__ == "__main__":
             print("::[bold green]NWebtoon Downloader[/bold green]::")
             print('<모드를 선택해주세요>')
             print('[magenta]d[/magenta] : 다운로드')
+            print('[magenta]o[/magenta] : 다운로드 폴더 열기')
             print('[magenta]m[/magenta] : 이미지 병합')
             print('[red]q[/red] : 프로그램 종료')
             # print('[magenta]h[/magenta] : HTML 생성')
@@ -85,6 +86,10 @@ if __name__ == "__main__":
                 input('작업이 완료되었습니다.')
             elif dialog.lower() == 'q':
                 exit()
+            elif dialog.lower() == 'o':
+                path = os.path.realpath(s.download_path)
+                os.startfile(path)
+                print('다운로드 폴더을 열었습니다.')
             else:
                 input('올바르지 않은 입력입니다.')
                 # 콘솔 청소 (Cross-Platform)
