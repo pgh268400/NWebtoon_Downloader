@@ -130,7 +130,7 @@ class NWebtoon:
         self.__number = int(res_json['totalCount'])
 
         adult_parse = webtoon.age.type
-        print(webtoon.age.type)
+        # print(webtoon.age.type)
         if adult_parse == "RATE_18":
             self.__isadult = False
         else:

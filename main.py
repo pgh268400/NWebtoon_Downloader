@@ -3,7 +3,7 @@ from module.HtmlMaker import HtmlMaker
 from module.ImageMerger import *
 from sys import exit
 # 웹툰 다운로드 Class
-from module.Nwebtoon import *
+from module.NWebtoon import *
 from rich import print
 import os
 

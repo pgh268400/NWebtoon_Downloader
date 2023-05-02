@@ -82,8 +82,8 @@ if __name__ == "__main__":
 
     # .from_dict() 메서드를 이용하여 딕셔너리를 Webtoon 객체로 변환
 
-    webtoon: NWebtoonMainData = NWebtoonMainData.from_dict(
-        data)  # type: ignore
+    webtoon: NWebtoonMainData = NWebtoonMainData.from_dict(  # type: ignore
+        data)
 
     # . 연산자로 nesting 되어 있는 속성들에 접근 가능
 

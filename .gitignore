@@ -9,6 +9,7 @@
 *.html
 !template*.html
 test.ipynb
+*test*.py
 error_log.txt
 venv/
 *.ini
