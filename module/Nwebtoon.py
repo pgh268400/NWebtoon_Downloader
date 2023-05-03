@@ -7,6 +7,7 @@ import re
 from multiprocessing.pool import ThreadPool
 import sys
 from time import sleep
+import time
 from typing import Literal
 from urllib import parse
 import aiohttp
@@ -308,6 +309,13 @@ class NWebtoon:
                     img_idx += 1
             img_idx = 0
 
+        # 멀티 프로세싱 대신 비동기로 이미지 다운로드 처미
+        # 안전성을 위해 아직은 다운로드는 멀티 프로세싱(멀티 쓰레드) 으로 유지함.
+        # start = time.time()  # 시작 시간 저장
+        # asyncio.run(self.async_multiple_download_images(processed_data))
+        # print("비동기 경과 시간 :", time.time() - start)  # 현재시각 - 시작시간 = 실행 시간
+        # input()
+
         # 기존 방식
         # 1. self.get_image_link 에서 이미지 링크를 동기적으로 일괄 추출해서 리스트로 제공하면
         # 2. p_image_download 함수에 병렬적(비동기로 실행)으로 전달되어 다운로드가 처리됨.
@@ -326,11 +334,28 @@ class NWebtoon:
         # 단순히 self.get_image_link 함수를 비동기적 로직으로 개선한 것.
         # 이를 통해 극적인 속도 향상을 얻음.
 
+        start = time.time()  # 시작 시간 저장
         results: UrlPathListResults = ThreadPool(thread_count).imap_unordered(self.p_image_download,
                                                                               processed_data)  # type: ignore
 
         for element in results:
             print(element.img_url, element.path)
+        # print("동기 멀티 프로세싱 경과 시간 :", time.time() - start)  # 현재시각 - 시작시간 = 실행 시간
+        # input()
+
+    async def async_download_image(self, session, url, path):
+        async with session.get(url) as response:
+            with open(path, 'wb') as f:
+                f.write(await response.content.read())
+                print(f"{url} 이미지 다운로드 완료")
+
+    async def async_multiple_download_images(self, image_list):
+        async with aiohttp.ClientSession() as session:
+            tasks = []
+            for url, path in image_list:
+                tasks.append(asyncio.ensure_future(
+                    self.async_download_image(session, url, path)))
+            await asyncio.gather(*tasks)
 
     # 웹툰 제목에 맞게 폴더 생성 + 이미지 링크 추출(경로 포함)
     def get_image_link(self, start_index: int, end_index: int) -> list[UrlPathTuple]:
