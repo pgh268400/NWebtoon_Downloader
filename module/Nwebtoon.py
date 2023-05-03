@@ -1,37 +1,38 @@
+import asyncio
 import errno
 import json
 import multiprocessing
 import os
 import re
 from multiprocessing.pool import ThreadPool
+import sys
 from time import sleep
 from typing import Literal
 from urllib import parse
+import aiohttp
 from rich import print
 import requests
 from bs4 import BeautifulSoup
 from requests import get
+import tqdm
 
 # 경로는 main.py의 위치를 기준으로 import함에 주의
 from module.Headers import headers, image_headers
 from module.Settings import Setting
 from type.api_article_list_info_v2 import NWebtoonMainData
 from type.api_search_all import NWebtoonSearchData, searchView
-from type.thread_pool_results import UrlPathTuple, UrlPathListResults
+from type.thread_pool_results import EpisodeResults, EpisodeUrlTuple, UrlPathTuple, UrlPathListResults
 
 download_index = 1  # 다운로드 인덱스 카운트
 
 
 class NWebtoon:
-    # ERROR_PATH = "./error_log.txt"  # 에러 로그 경로
-    # DOWNLOAD_PATH = "./Webtoon_Download"  # 다운로드 경로
-
     def __init__(self, query: str) -> None:
         """
         검색어를 주고 객체를 생성하면 이 생성자에서 처리를 합니다.
         알아서 검색창을 띄어주고 사용자가 선택한 웹툰에 따라
         웹툰 객체가 웹툰의 정보를 가질 수 있게 합니다.
-        :param query: 검색어
+        :param query: 검색어 (또는 웹툰 TITLE ID, URL 이 될수도 있음)
         """
         # 생성자에서 파이썬 인스턴스 변수 초기화
 
@@ -71,13 +72,16 @@ class NWebtoon:
             f"https://comic.naver.com/api/article/list/info?titleId={self.__title_id}")
 
         # json.loads()를 사용하여 JSON 응답을 파이썬 객체로 변환
-        res_json: dict = json.loads(res.content)
+        json_res: dict = json.loads(res.content)
 
         # JSON 응답 딕셔너리를 미리 타입 정의한 Dataclass로 변환 (type-safety)
         webtoon: NWebtoonMainData = NWebtoonMainData.from_dict(  # type: ignore
-            res_json)
+            json_res)
 
         self.__title = webtoon.titleName  # 웹툰 제목
+        # 웹툰 제목에서 특수문자 유니코드 문자로 변환 (폴더로 사용할 수 없는 문자 제거)
+        self.__title = self.filename_remover(self.__title)
+
         self.__content = webtoon.synopsis  # 컨텐츠 가져오기
 
         # 웹툰 타입 : webtoon / challenge / bestChallenge : url에서 사용하는 것
@@ -89,7 +93,7 @@ class NWebtoon:
         elif json_level_code == "BEST_CHALLENGE":
             self.__wtype = "bestChallenge"
 
-        # no에 아주 큰 값을 넣어서 리다이렉션되는 페이지에서 접근가능한 총화수를 가져옴
+        # no에 아주 큰 값을 넣어서 리다이렉트되는 주소를 가져옴
         res = requests.get(
             f"https://comic.naver.com/{self.__wtype}/detail?titleId={self.__title_id}&no=999999", allow_redirects=True)
         redirected_url = res.url
@@ -104,30 +108,14 @@ class NWebtoon:
             print('성인 웹툰입니다. 로그인 정보를 입력해주세요.')
             NID_AUT = input("NID_AUT : ")
             NID_SES = input("NID_SES : ")
-            self.set_session(NID_AUT, NID_SES)  # 객체에 세션 데이터 넘기기
-
+            self.set_session(NID_AUT, NID_SES)  # 객체에 세션 데이터 넘기기 : Setter
             cookies = {"NID_AUT": NID_AUT, "NID_SES": NID_SES}
-            # res = requests.get(
-            #     f"https://comic.naver.com/{self.__wtype}/detail?titleId={self.__title_id}&no=999999", cookies=cookies, allow_redirects=True)
-            # redirected_url = res.url
-
-        # url에서 no 부분만 가져오기
-        # ex) https://comic.naver.com/webtoon/detail?titleId=20853&no=100 -> 100
-        # match = re.search(r'no=(\d+)', redirected_url)
-
-        # if match:
-        #     # 웹툰 총 화수 (반드시 int타입 이여야함.)
-        #     self.__number = int(match.group(1))
-        # else:
-        #     input(
-        #         "Error : 웹툰의 총 화수를 가져오지 못했습니다.\n성인웹툰이라면 NID_AUT, NID_SES의 오타 여부를, 일반 웹툰이라면 인터넷 연결 상태를 확인해주세요.")
-        #     exit()
 
         res = requests.get(
             f"https://comic.naver.com/api/article/list?titleId={self.__title_id}&page=1", cookies=cookies)
-        res_json: dict = json.loads(res.content)
+        json_res: dict = json.loads(res.content)
 
-        self.__number = int(res_json['totalCount'])
+        self.__number = int(json_res['totalCount'])
 
         adult_parse = webtoon.age.type
         # print(webtoon.age.type)
@@ -289,6 +277,38 @@ class NWebtoon:
         download_index = start_index
         thread_count = multiprocessing.cpu_count() * 2
 
+        print("웹툰 이미지 링크를 추출하고, 타이틀 명으로 폴더 생성을 시작합니다...")
+        print("너무 오랫동안 지연되거나 멈추면 프로그램을 종료 후 몇초 후 기다렸다가 다시 실행해주세요.")
+        self.set_asyncio_event_loop_policy()
+        responses = asyncio.run(
+            self.async_multi_fetch_episode_title(start_index, end_index))
+
+        # print(responses)
+        print("데이터 추출이 완료되었습니다.")
+        print("추출한 데이터를 변환하고 이미지 다운로드를 시작합니다.")
+
+        # EpisodeResults -> UrlPathListResults 로 변환하기 위해 준비한 리스트
+        # 이곳에서 EpisodeResults 에서 UrlPathListResults 로 변환하는 작업이 이루어짐.
+        processed_data: UrlPathListResults = []
+
+        img_idx = 0
+        for item in responses:
+            # 튜플이 비었으면 무시
+            if item.title_name != "":
+                folder_idx = str(item.no).zfill(
+                    self.__settings.get_zero_fill('Folder'))
+                folder_title = item.title_name
+                img_url_list = item.img_src_list
+                for img_url in img_url_list:
+                    img_z_fill = str(img_idx).zfill(
+                        self.__settings.get_zero_fill('Image'))
+                    img_path = os.path.join(
+                        self.__settings.download_path, self.__title,  f"[{folder_idx}] {folder_title}", f"{img_z_fill}.jpg")
+                    processed_data.append(UrlPathTuple(img_url, img_path))
+                    img_idx += 1
+            img_idx = 0
+
+        # 기존 방식
         # 1. self.get_image_link 에서 이미지 링크를 동기적으로 일괄 추출해서 리스트로 제공하면
         # 2. p_image_download 함수에 병렬적(비동기로 실행)으로 전달되어 다운로드가 처리됨.
         # 3. 결과는 리스트로 반환되는데, 이 리스트는 순서가 보장되지 않음. (by imap_unordered)
@@ -296,16 +316,23 @@ class NWebtoon:
         # self.get_image_link 자체는 동기적으로 처리되기 때문에 이때 디렉토리 생성은 순서가 보장되며, 속도를 더 늘리고 싶다면
         # self.get_image_link 함수 역시 병렬 처리로 코드를 변경하면 됨. (not for, but imap_unordered)
         # 아직은 self.get_image_link 은 병렬 처리 하고 있지 않음.
-        # 결론적으로 네트워크 I/O에 의한 웹툰 다운로드 속도를 최대한 높이기 위해 이미지 다운로드를 하는 부분 p_image_download 만
+        # 결론적으로 네트워크 I/O에 식한 웹툰 다운로드 속도를 최대한 높이기 위해 이미지 다운로드를 하는 부분 p_image_download 만
         # 병렬적으로 처리되고 있는 것.
 
+        # 새로운 방식
+        # 1. self.get_image_link 을 이용하지 않고 새롭게 비동기적인 방식으로 리스트를 가져옴.
+        # (함수를 imap_unordered 안에서 호출하지 않고 미리 사전에 데이터를 담은 리스트로 제공)
+        # 2. 이후 과정은 동일 p_image_download 함수에서는 병렬적으로 실행되어 이미지 다운로드가 처리됨.
+        # 단순히 self.get_image_link 함수를 비동기적 로직으로 개선한 것.
+        # 이를 통해 극적인 속도 향상을 얻음.
+
         results: UrlPathListResults = ThreadPool(thread_count).imap_unordered(self.p_image_download,
-                                                                              self.get_image_link(start_index, end_index))  # type: ignore
+                                                                              processed_data)  # type: ignore
 
         for element in results:
             print(element.img_url, element.path)
 
-    # 이미지 링크 추출(경로 포함)
+    # 웹툰 제목에 맞게 폴더 생성 + 이미지 링크 추출(경로 포함)
     def get_image_link(self, start_index: int, end_index: int) -> list[UrlPathTuple]:
         global download_index
 
@@ -389,7 +416,87 @@ class NWebtoon:
             download_index += 1
         return result
 
+    # 이미지 링크 추출 비동기 버전 - [웹툰 제목에 대한 폴더 생성 & 이미지 링크 추출 + 경로 생성]
+    async def async_fetch_episode_title(self, session: aiohttp.ClientSession, no: int) -> EpisodeUrlTuple:
+        url = f'https://comic.naver.com/{self.__wtype}/detail?titleId={self.__title_id}&no={no}'
+        async with session.get(url) as response:
+            # html : byte = await response.read()
+            html: str = await response.text()
+
+            # id가 subTitle_toolbar인 태그를 찾음.
+            pattern = re.compile(
+                r'<[^>]*id="subTitle_toolbar"[^>]*>(.*?)</[^>]*>', re.DOTALL)
+
+            # HTML 코드에서 패턴을 찾습니다.
+            match = pattern.search(html)
+
+            # 매칭된 결과를 가져옵니다.
+
+            if match:
+                episode_title = match.group(1).strip()
+            else:
+                # 제목을 가져오지 못하면 빈 튜플 반환후 종료
+                return EpisodeUrlTuple()
+
+            # title 에서 폴더 생성이 불가한 문자 제거
+            episode_title = self.filename_remover(episode_title)
+
+            # exist_ok라는 파라미터를 True로 하면 해당 디렉토리가 기존에 존재하면
+            # 에러발생 없이 넘어가고, 없을 경우에만 생성합니다.
+
+            # 다운로드할 메인 폴더 생성
+            os.makedirs(self.__settings.download_path, exist_ok=True)
+
+            # 제목에 맞게 폴더 생성 (메인 폴더 안에 들어갈 폴더)
+            os.makedirs(os.path.join(self.__settings.download_path, self.__title,
+                        f"[{no}] {episode_title}"), exist_ok=True)
+
+            # id가 sectionContWide 인 태그를 찾음. (img 태그를 묶는 전체 div 태그)
+            pattern = re.compile(
+                r'<div.*?id="sectionContWide".*?>(.*?)</div>', re.DOTALL)
+            img_srcs = re.findall(pattern, html)
+
+            # 그 안에서 img 태그를 찾아서 src 속성을 가져와 리스트로 저장 (src_list)
+            inner_html = img_srcs[0] if img_srcs else ''
+            pattern = re.compile(r'<img.*?src="(.*?)".*?>', re.DOTALL)
+            img_srcs: list[str] = re.findall(pattern, inner_html)
+            return EpisodeUrlTuple(no, episode_title, img_srcs)
+
+    # async_fetch_episode_title 함수를 비동기적으로 한꺼번에 등록 & 실행해서
+    # 결과를 받아오는 함수 (실제로 사용하는 함수)
+
+    async def async_multi_fetch_episode_title(self, start_index: int, end_index: int) -> EpisodeResults:
+        # 세션은 변수 한개만 사용해서 공유하면 됨.
+        cookies = {'NID_AUT': self.NID_AUT, 'NID_SES': self.NID_SES}
+        async with aiohttp.ClientSession(cookies=cookies) as session:
+            tasks = []
+            # for문으로 예약작업 리스트에 담기 (비동기적으로 처리되므로 여기서 바로 실행되지 않음)
+            for episode in range(start_index, end_index + 1):
+                task = asyncio.ensure_future(
+                    self.async_fetch_episode_title(session, episode))
+                tasks.append(task)
+
+            # 이곳에서 한꺼번에 실행후 결과를 받음
+            # results = await asyncio.gather(*tasks)
+            # for r in results:
+            #     print(r)
+
+            # tdqm 활용하여 비동기 작업 진행상황 표시
+            responses: EpisodeResults = []
+            for f in tqdm.tqdm(asyncio.as_completed(tasks), total=len(tasks)):
+                responses.append(await f)
+
+            # 결과값 리턴
+            return responses
+
+    def set_asyncio_event_loop_policy(self) -> None:
+        py_ver = int(f"{sys.version_info.major}{sys.version_info.minor}")
+        if py_ver > 37 and sys.platform.startswith('win'):
+            asyncio.set_event_loop_policy(
+                asyncio.WindowsSelectorEventLoopPolicy())
+
     # 다중 이미지 다운로드
+
     def p_image_download(self, data: UrlPathTuple) -> UrlPathTuple | None:
         # 다운로드할 이미지가 없으면 빈 리스트를 다시 뱉고 다운로드를 수행하지 않는다.
         if not data:
@@ -415,6 +522,7 @@ class NWebtoon:
                 break
 
     # Getter 함수 구현 (프로퍼티)
+
     @ property
     def title(self) -> str:
         return self.__title

@@ -7,6 +7,8 @@ from module.NWebtoon import *
 from rich import print
 import os
 
+from module.input_validate import *
+
 
 # 콘솔창 타이틀 변경 (윈도우 전용)
 WINDOW_TITLE = "NWebtoon Downloader v5.3-NEW"
@@ -16,7 +18,6 @@ if os.name == 'nt':
     import ctypes
     ctypes.windll.kernel32.SetConsoleTitleW(WINDOW_TITLE)
 
-# 이미지 병합 Class
 if __name__ == "__main__":
 
     # 세팅 파일 없으면 자동 생성 & 값 읽기
@@ -33,12 +34,10 @@ if __name__ == "__main__":
             # print('[magenta]h[/magenta] : HTML 생성')
             dialog = input('>>> ')
             if dialog.lower() == 'd':
-                query = ""
-                while not query.strip():
-                    # 입력값이 있을때까지 반복
-                    query = input(">>> 정보를 입력해주세요(웹툰ID, URL, 웹툰제목) : ")
-                webtoon = NWebtoon(query)  # 객체 생성
-                title_id = webtoon.title_id
+                # 공백이 아닐때까지 입력을 받는다
+                query = input_until_get_data(
+                    default_prompt=">>> 정보를 입력해주세요(웹툰ID, URL, 웹툰제목) : ")
+                webtoon = NWebtoon(query)  # 객체 생성 -> 웹툰 데이터 파싱
 
                 print('-------------------------------')
                 print(f"[bold green]웹툰명[/bold green] : {webtoon.title}")
@@ -47,14 +46,11 @@ if __name__ == "__main__":
                 print(webtoon.content)
                 print('-------------------------------')
 
-                dialog = input('몇화부터 몇화까지 다운로드 받으시겠습니까? 예) 1-10 , 5: ').strip()
+                # 입력값 검증 : "숫자" 또는 "숫자-숫자" 만 입력할때까지 입력을 받는다.
 
-                # 입력값 검증 : "숫자" 또는 "숫자-숫자" 만 입력하도록
-                while (True):
-                    if dialog.isdigit() or (dialog.find('-') != -1 and dialog.split('-')[0].isdigit() and dialog.split('-')[1].isdigit()):
-                        break
-                    else:
-                        dialog = input('>>> 다시 입력해주세요. 예) 1-10 , 5: ').strip()
+                dialog = input_until_correct_download_range(
+                    default_prompt='몇화부터 몇화까지 다운로드 받으시겠습니까? 예) 1-10 , 5: ',
+                    error_prompt='>>> 다시 입력해주세요. 예) 1-10 , 5: ')
 
                 # 검증된 입력값에 대해 다운로드 진행
                 if dialog.find('-') == -1:  # 숫자만 입력했을때 ("-" 입력하지 않고 순수한 문자만 입력시)

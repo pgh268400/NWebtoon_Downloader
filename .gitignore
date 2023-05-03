@@ -13,3 +13,4 @@ test.ipynb
 error_log.txt
 venv/
 *.ini
+test/
