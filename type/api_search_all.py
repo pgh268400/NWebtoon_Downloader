@@ -3,7 +3,7 @@ from typing import List, Optional
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
 
-from type.api_article_list_info_v2 import Age, Author
+from type.api_article_list_info import Age, Author
 
 
 @dataclass_json
@@ -81,6 +81,7 @@ if __name__ == "__main__":
 
     # .from_dict() 메서드를 이용하여 딕셔너리를 Webtoon 객체로 변환
 
-    webtoon: NWebtoonSearchData = NWebtoonSearchData.from_dict(data)
+    webtoon: NWebtoonSearchData = NWebtoonSearchData.from_dict(
+        data)  # type: ignore
 
     print(webtoon.searchBestChallengeResult)

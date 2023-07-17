@@ -19,7 +19,6 @@ if os.name == 'nt':
     ctypes.windll.kernel32.SetConsoleTitleW(WINDOW_TITLE)
 
 if __name__ == "__main__":
-
     # 세팅 파일 없으면 자동 생성 & 값 읽기
     s = Setting()
 

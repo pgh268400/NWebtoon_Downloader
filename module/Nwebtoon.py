@@ -19,8 +19,8 @@ import tqdm
 
 # 경로는 main.py의 위치를 기준으로 import함에 주의
 from module.Headers import headers, image_headers
-from module.Settings import Setting
-from type.api_article_list_info_v2 import NWebtoonMainData
+from module.Settings import FileSettingType, Setting
+from type.api_article_list_info import NWebtoonMainData, WebtoonCode, WebtoonType
 from type.api_search_all import NWebtoonSearchData, searchView
 from type.thread_pool_results import EpisodeResults, EpisodeUrlTuple, UrlPathTuple, UrlPathListResults
 
@@ -49,8 +49,7 @@ class NWebtoon:
         self.__title_id: str = ""
         self.__title: str = ""
         self.__isadult: bool = False
-        self.__wtype: Literal["webtoon",
-                              "challenge", "bestChallenge"] = "webtoon"
+        self.__wtype: WebtoonType = WebtoonType.webtoon
         self.__number: int = 0
         self.__content: str = ""
 
@@ -87,12 +86,12 @@ class NWebtoon:
 
         # 웹툰 타입 : webtoon / challenge / bestChallenge : url에서 사용하는 것
         json_level_code = webtoon.webtoonLevelCode
-        if json_level_code == "WEBTOON":
-            self.__wtype = "webtoon"
-        elif json_level_code == "CHALLENGE":
-            self.__wtype = "challenge"
-        elif json_level_code == "BEST_CHALLENGE":
-            self.__wtype = "bestChallenge"
+        if json_level_code == WebtoonCode.WEBTOON:
+            self.__wtype = WebtoonType.webtoon
+        elif json_level_code == WebtoonCode.CHALLENGE:
+            self.__wtype = WebtoonType.challenge
+        elif json_level_code == WebtoonCode.BEST_CHALLENGE:
+            self.__wtype = WebtoonType.bestChallenge
 
         # no에 아주 큰 값을 넣어서 리다이렉트되는 주소를 가져옴
         res = requests.get(
@@ -194,9 +193,6 @@ class NWebtoon:
             else:
                 break
 
-        # webtoon_lst = res_json["searchWebtoonResult"]["searchViewList"]
-        # print(webtoon_lst)
-
         i = 1
 
         print(f'[bold green]-----웹툰 검색결과-----[/bold green]')
@@ -297,12 +293,12 @@ class NWebtoon:
             # 튜플이 비었으면 무시
             if item.title_name != "":
                 folder_idx = str(item.no).zfill(
-                    self.__settings.get_zero_fill('Folder'))
+                    self.__settings.get_zero_fill(FileSettingType.Folder))
                 folder_title = item.title_name
                 img_url_list = item.img_src_list
                 for img_url in img_url_list:
                     img_z_fill = str(img_idx).zfill(
-                        self.__settings.get_zero_fill('Image'))
+                        self.__settings.get_zero_fill(FileSettingType.Image))
                     img_path = os.path.join(
                         self.__settings.download_path, self.__title,  f"[{folder_idx}] {folder_title}", f"{img_z_fill}.jpg")
                     processed_data.append(UrlPathTuple(img_url, img_path))
@@ -334,7 +330,7 @@ class NWebtoon:
         # 단순히 self.get_image_link 함수를 비동기적 로직으로 개선한 것.
         # 이를 통해 극적인 속도 향상을 얻음.
 
-        start = time.time()  # 시작 시간 저장
+        # start = time.time()  # 시작 시간 저장
         results: UrlPathListResults = ThreadPool(thread_count).imap_unordered(self.p_image_download,
                                                                               processed_data)  # type: ignore
 
@@ -384,19 +380,15 @@ class NWebtoon:
 
             # 설정값 읽어오기 (폴더 제로필)
             s = Setting()
-            folder_zfill_cnt = s.get_zero_fill('Folder')
-
-            # idx = "[" + str(download_index) + "] "  # 순번매기기 형식 [0], [1]...
+            folder_zfill_cnt = s.get_zero_fill(FileSettingType.Folder)
 
             # 현재 다운로드 인덱스 string으로 변환 후, 제로필(자릿수 0으로 채우기) 적용
             z_fill_idx = str(download_index).zfill(folder_zfill_cnt)
             idx = f"[{z_fill_idx}] "
 
-            # running_path = os.path.abspath(os.path.dirname(__file__))
             directory_title = self.filename_remover(self.__title)
             img_path = os.path.join(directory_title, idx + manga_title)
 
-            # path = self.filename_remover(img_path)
             path = img_path
 
             # download_path 와 path 경로 합치기
@@ -407,10 +399,6 @@ class NWebtoon:
             # download_path 폴더 없으면 생성
             if not os.path.exists(self.__settings.download_path):
                 os.makedirs(self.__settings.download_path)
-
-            # print title, idx, manga_title
-            # print("title : ", self.__title, "idx : ",
-            #       idx, "manga_title : ", manga_title)
 
             try:
                 print(f'[디렉토리 생성] {manga_title}')
@@ -424,7 +412,7 @@ class NWebtoon:
             j = 0
 
             s = Setting()
-            image_zfill_cnt = s.get_zero_fill('Image')
+            image_zfill_cnt = s.get_zero_fill(FileSettingType.Image)
             for img in image_url:
                 url = str(img['src'])
 
@@ -561,7 +549,7 @@ class NWebtoon:
         return self.__content
 
     @ property
-    def wtype(self) -> Literal['webtoon', 'challenge', 'bestChallenge']:
+    def wtype(self) -> WebtoonType:
         return self.__wtype
 
     @ property

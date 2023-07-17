@@ -1,9 +1,5 @@
-from email.mime import base
 import os
-
-
 import natsort
-import glob
 import cv2
 import numpy as np
 
@@ -11,7 +7,7 @@ import numpy as np
 class ImageMerger:
     # 파이썬에서 private = 앞에 언더바 두개 (__)
 
-    def __init__(self, dir_path):
+    def __init__(self, dir_path) -> None:
         try:
             self.__dir_path = dir_path
 
@@ -132,11 +128,11 @@ class ImageMerger:
 
     # Public Method -------------------------------------------------------
 
-    def print_lists(self):
+    def print_lists(self) -> None:
         for element in self.__file_lst:
             print(element)
 
-    def run(self):
+    def run(self) -> None:
         try:
             # 단일 디렉토리인 경우
             if self.__pure_file:

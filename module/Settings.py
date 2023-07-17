@@ -1,9 +1,17 @@
+from enum import auto
 import os
 import configparser
 from typing import Literal
 
+from type.nwebtoon import StrEnum
+
 # INI 파일을 쉽게 관리하기 위해
 # 사용하는 클래스 (싱글톤?)
+
+
+class FileSettingType(StrEnum):
+    Folder = auto()
+    Image = auto()
 
 
 class Setting:
@@ -16,12 +24,6 @@ class Setting:
             # 현재 실행 경로에 설정 파일이 없으면 생성한다.
             if not os.path.isfile(self.__settings_path):
                 config = configparser.ConfigParser()
-                # config['Folder'] = {}                # 섹션을 생성한다
-                # config['Image'] = {}
-
-                # config['Folder']['zerofill'] = '0'      # 섹션 아래 실제 값을 생성한다
-                # config['Image']['zerofill'] = '0'
-
                 config['ZeroFill'] = {}                # 섹션을 생성한다
                 config['ZeroFill']['Folder'] = '0'      # 섹션 아래 실제 값을 생성한다
                 config['ZeroFill']['Image'] = '0'
@@ -51,10 +53,10 @@ class Setting:
             os._exit(1)
 
     # 파이썬 기본 프로퍼티 타입에 호환이 안되므로 Getter 함수로 제작
-    def get_zero_fill(self, type: Literal['Folder', 'Image']) -> int:
-        if type == 'Folder':
+    def get_zero_fill(self, type: FileSettingType) -> int:
+        if type == FileSettingType.Folder:
             return self.__folder_zero_fill
-        elif type == 'Image':
+        elif type == FileSettingType.Image:
             return self.__image_zero_fill
 
     @property
@@ -68,5 +70,5 @@ class Setting:
 
 if __name__ == "__main__":
     s = Setting()
-    print(s.get_zero_fill('Folder'))
-    print(s.get_zero_fill('Image'))
+    print(s.get_zero_fill(FileSettingType.Folder))
+    print(s.get_zero_fill(FileSettingType.Image))
