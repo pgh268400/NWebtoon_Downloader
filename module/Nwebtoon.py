@@ -18,11 +18,12 @@ from requests import get
 import tqdm
 
 # 경로는 main.py의 위치를 기준으로 import함에 주의
-from module.Headers import headers, image_headers
-from module.Settings import FileSettingType, Setting
+from module.headers import headers, image_headers
+from module.settings import FileSettingType, Setting
 from type.api_article_list_info import NWebtoonMainData, WebtoonCode, WebtoonType
 from type.api_search_all import NWebtoonSearchData, searchView
 from type.thread_pool_results import EpisodeResults, EpisodeUrlTuple, UrlPathTuple, UrlPathListResults
+
 
 download_index = 1  # 다운로드 인덱스 카운트
 

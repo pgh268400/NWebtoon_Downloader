@@ -2,7 +2,7 @@ import os
 import re
 from pathlib import Path
 import chardet
-from .ImageMerger import ImageMerger
+from .image_merger import ImageMerger
 from jinja2 import Template  # html 템플릿용
 import natsort
 

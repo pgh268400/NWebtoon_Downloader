@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
-from module.HtmlMaker import HtmlMaker
-from module.ImageMerger import *
+from module.html_maker import HtmlMaker
+from module.image_merger import *
 from sys import exit
 # 웹툰 다운로드 Class
-from module.NWebtoon import *
+from module.nwebtoon import *
 from rich import print
 import os
 
@@ -21,7 +21,6 @@ if os.name == 'nt':
 if __name__ == "__main__":
     # 세팅 파일 없으면 자동 생성 & 값 읽기
     s = Setting()
-
     while (True):
         try:
             print("::[bold green]NWebtoon Downloader[/bold green]::")
