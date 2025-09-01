@@ -83,20 +83,17 @@ class SearchBestChallenge(BaseModel):
             self.extra_fields = self.__pydantic_extra__ or {}
 
 
-class SearchNbooksComic(SearchBestChallenge):
-    pass
+# ... = pass랑 똑같은거
+class SearchNbooksComic(SearchBestChallenge): ...
 
 
-class SearchWebtoon(SearchBestChallenge):
-    pass
+class SearchWebtoon(SearchBestChallenge): ...
 
 
-class SearchChallenge(SearchBestChallenge):
-    pass
+class SearchChallenge(SearchBestChallenge): ...
 
 
-class SearchNbooksNovel(SearchBestChallenge):
-    pass
+class SearchNbooksNovel(SearchBestChallenge): ...
 
 
 class NWebtoonSearchData(BaseModel):

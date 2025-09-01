@@ -1,6 +1,6 @@
 from enum import auto
 import json
-from typing import List, Literal, Any, Dict, Union
+from typing import List, Any, Dict
 from pydantic import BaseModel, Field, ConfigDict
 from type.nwebtoon import StrEnum
 
@@ -49,7 +49,9 @@ class Author(BaseModel):
 
 
 class Age(BaseModel):
-    type: str  # 몇 세 이용가인지. ["RATE_12", "RATE_15", "RATE_18", "NONE"] 로 추정되나, 이 4가지 type으로 정의 되지 않는 경우도 있어서 그냥 str로 정의
+    type: str = (
+        ""  # 몇 세 이용가인지. ["RATE_12", "RATE_15", "RATE_18", "NONE"] 로 추정되나, 이 4가지 type으로 정의 되지 않는 경우도 있어서 그냥 str로 정의
+    )
     description: str = ""
 
     # 동적 필드 처리를 위한 설정
@@ -161,7 +163,7 @@ if __name__ == "__main__":
 
     # .from_dict() 메서드를 이용하여 딕셔너리를 Webtoon 객체로 변환
 
-    webtoon: NWebtoonMainData = NWebtoonMainData.from_dict(data)  # type: ignore
+    webtoon: NWebtoonMainData = NWebtoonMainData.from_dict(data)
 
     # . 연산자로 nesting 되어 있는 속성들에 접근 가능
 
