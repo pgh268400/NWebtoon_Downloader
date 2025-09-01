@@ -81,7 +81,7 @@ class NWebtoon:
         json_res: dict = json.loads(res.content)
 
         # JSON 응답 딕셔너리를 미리 타입 정의한 Dataclass로 변환 (type-safety)
-        webtoon: NWebtoonMainData = NWebtoonMainData.from_dict(json_res)  # type: ignore
+        webtoon: NWebtoonMainData = NWebtoonMainData.from_dict(json_res)
 
         self.__title = webtoon.titleName  # 웹툰 제목
         # 웹툰 제목에서 특수문자 유니코드 문자로 변환 (폴더로 사용할 수 없는 문자 제거)
@@ -189,10 +189,12 @@ class NWebtoon:
             # json.loads()를 사용하여 JSON 응답을 파이썬 객체로 변환
             res_json = json.loads(res.content)
 
+            # JSON 응답을 파일로 저장
+            with open("api_search_all.json", "w", encoding="utf-8") as f:
+                json.dump(res_json, f, ensure_ascii=False, indent=2)
+
             # json 응답을 미리 정의한 dataclass 타입으로 변환(type-safety)
-            webtoon: NWebtoonSearchData = NWebtoonSearchData.from_dict(  # type: ignore
-                res_json
-            )
+            webtoon: NWebtoonSearchData = NWebtoonSearchData.from_dict(res_json)
 
             # 일반 웹툰, 베스트 도전, 도전만화 갯수 파싱
             webtoon_cnt = webtoon.searchWebtoonResult.totalCount
@@ -209,21 +211,21 @@ class NWebtoon:
 
         i = 1
 
-        print(f"[bold green]-----웹툰 검색결과-----[/bold green]")
+        print("[bold green]-----웹툰 검색결과-----[/bold green]")
         print(f"[상위 5개] ---- 총 {webtoon_cnt}개")
         webtoon_result = self.search_api_parser(webtoon, "webtoon")
         for element in webtoon_result:
             print(f"[bold red]{i}.[/bold red] {element[0]}")
             i += 1
 
-        print(f"[bold green]-----베스트 도전 검색결과-----[/bold green]")
+        print("[bold green]-----베스트 도전 검색결과-----[/bold green]")
         print(f"[상위 5개] ---- 총 {best_challenge_cnt}개")
         best_challenge_result = self.search_api_parser(webtoon, "bestChallenge")
         for element in best_challenge_result:
             print(f"[bold red]{i}.[/bold red] {element[0]}")
             i += 1
 
-        print(f"[bold green]-----도전만화 검색결과-----[/bold green]")
+        print("[bold green]-----도전만화 검색결과-----[/bold green]")
         print(f"[상위 5개] ---- 총 {challenge_cnt}개")
         challenge_result = self.search_api_parser(webtoon, "challenge")
         for element in challenge_result:
