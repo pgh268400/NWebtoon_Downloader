@@ -49,7 +49,7 @@ class Author(BaseModel):
 
 
 class Age(BaseModel):
-    type: Union[Literal["RATE_12", "RATE_15", "RATE_18", "NONE"], str]
+    type: str  # 몇 세 이용가인지. ["RATE_12", "RATE_15", "RATE_18", "NONE"] 로 추정되나, 이 4가지 type으로 정의 되지 않는 경우도 있어서 그냥 str로 정의
     description: str = ""
 
     # 동적 필드 처리를 위한 설정
