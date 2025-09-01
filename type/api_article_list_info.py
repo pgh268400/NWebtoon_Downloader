@@ -1,4 +1,4 @@
-from enum import Enum, auto
+from enum import auto
 import json
 from typing import List, Literal
 from dataclasses import dataclass, field
@@ -37,7 +37,7 @@ class Author:
 @dataclass_json
 @dataclass
 class Age:
-    type: Literal['RATE_12', 'RATE_15', 'RATE_18'] = 'RATE_12'
+    type: Literal["RATE_12", "RATE_15", "RATE_18"] = "RATE_12"
     description: str = ""
 
 
@@ -89,15 +89,14 @@ class NWebtoonMainData:
 if __name__ == "__main__":
     # json 모듈을 이용하여 JSON 문자열을 파이썬 딕셔너리로 변환
 
-    with open('./type/test.json', encoding='utf-8') as f:
+    with open("./type/test.json", encoding="utf-8") as f:
         data = json.load(f)
 
     # str_json = json.dump(data)
 
     # .from_dict() 메서드를 이용하여 딕셔너리를 Webtoon 객체로 변환
 
-    webtoon: NWebtoonMainData = NWebtoonMainData.from_dict(  # type: ignore
-        data)
+    webtoon: NWebtoonMainData = NWebtoonMainData.from_dict(data)  # type: ignore
 
     # . 연산자로 nesting 되어 있는 속성들에 접근 가능
 

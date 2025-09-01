@@ -1,7 +1,6 @@
 from enum import auto
 import os
 import configparser
-from typing import Literal
 
 from type.nwebtoon import StrEnum
 
@@ -24,16 +23,18 @@ class Setting:
             # 현재 실행 경로에 설정 파일이 없으면 생성한다.
             if not os.path.isfile(self.__settings_path):
                 config = configparser.ConfigParser()
-                config['ZeroFill'] = {}                # 섹션을 생성한다
-                config['ZeroFill']['Folder'] = '0'      # 섹션 아래 실제 값을 생성한다
-                config['ZeroFill']['Image'] = '0'
+                config["ZeroFill"] = {}  # 섹션을 생성한다
+                config["ZeroFill"]["Folder"] = "0"  # 섹션 아래 실제 값을 생성한다
+                config["ZeroFill"]["Image"] = "0"
 
                 # DEFAULT 섹션은 기본적으로 생성되어 있어 생성없이 쓸 수 있다
-                config['DEFAULT']['DownloadPath'] = "./Webtoon_Download"
-                config['DEFAULT']['ErrorPath'] = "./error_log.txt"
+                config["DEFAULT"]["DownloadPath"] = "./Webtoon_Download"
+                config["DEFAULT"]["ErrorPath"] = "./error_log.txt"
 
                 # 실제 파일로 쓰기
-                with open(self.__settings_path, 'w', encoding=self.__encoding) as configfile:
+                with open(
+                    self.__settings_path, "w", encoding=self.__encoding
+                ) as configfile:
                     config.write(configfile)
 
             # 설정 파일을 읽어서 객체 변수에 저장한다. (문자열)
@@ -41,14 +42,16 @@ class Setting:
             config = configparser.ConfigParser()
             config.read(self.__settings_path)
 
-            self.__folder_zero_fill: int = int(config['ZeroFill']['Folder'])
-            self.__image_zero_fill: int = int(config['ZeroFill']['Image'])
-            self.__download_path: str = config['DEFAULT']['DownloadPath']
-            self.__error_path: str = config['DEFAULT']['ErrorPath']
+            self.__folder_zero_fill: int = int(config["ZeroFill"]["Folder"])
+            self.__image_zero_fill: int = int(config["ZeroFill"]["Image"])
+            self.__download_path: str = config["DEFAULT"]["DownloadPath"]
+            self.__error_path: str = config["DEFAULT"]["ErrorPath"]
 
         except Exception as e:
             print(e)
-            input("INI 파일 처리 중 오류가 발생하였습니다. 업데이트 하셨다면 ini 파일을 삭제후 다시 실행해보세요.")
+            input(
+                "INI 파일 처리 중 오류가 발생하였습니다. 업데이트 하셨다면 ini 파일을 삭제후 다시 실행해보세요."
+            )
             # 프로그램 강제 종료
             os._exit(1)
 

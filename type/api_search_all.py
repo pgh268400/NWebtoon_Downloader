@@ -1,5 +1,5 @@
 import json
-from typing import List, Optional
+from typing import List
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
 
@@ -74,14 +74,13 @@ class NWebtoonSearchData:
 
 
 if __name__ == "__main__":
-    with open('./type/test2.json', encoding='utf-8') as f:
+    with open("./type/test2.json", encoding="utf-8") as f:
         data = json.load(f)
 
     # str_json = json.dump(data)
 
     # .from_dict() 메서드를 이용하여 딕셔너리를 Webtoon 객체로 변환
 
-    webtoon: NWebtoonSearchData = NWebtoonSearchData.from_dict(
-        data)  # type: ignore
+    webtoon: NWebtoonSearchData = NWebtoonSearchData.from_dict(data)  # type: ignore
 
     print(webtoon.searchBestChallengeResult)

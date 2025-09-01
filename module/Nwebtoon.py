@@ -7,7 +7,6 @@ import re
 from multiprocessing.pool import ThreadPool
 import sys
 from time import sleep
-import time
 from typing import Literal
 from urllib import parse
 import aiohttp
@@ -147,6 +146,7 @@ class NWebtoon:
         # 우리는 만들어진 튜플을 파이썬의 (,) unpacking 기능을 이용하여 인덱스와 원소를 각각의 변수에 저장할 것이다.
         # 리스트를 반복하면서 인덱스를 활용하는 파이썬 스러운 방법이다! So cool!
         # 라고 잘 적어놨으나 여기서 i 인덱스를 만들어줄 이유가 없어서 일단은.. enumerate() 함수의 원리만 이해하도록 하자 ㅎㅎ;
+        
         result = []
         for i, search_view in enumerate(webtoon_lst, 1):
             search_view: searchView  # type hinting
