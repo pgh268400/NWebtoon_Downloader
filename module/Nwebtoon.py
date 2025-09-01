@@ -294,10 +294,7 @@ class NWebtoon:
         print(
             "너무 오랫동안 지연되거나 멈추면 프로그램을 종료 후 몇초 후 기다렸다가 다시 실행해주세요."
         )
-        self.set_asyncio_event_loop_policy()
-        responses = asyncio.run(
-            self.async_multi_fetch_episode_title(start_index, end_index)
-        )
+        responses = self.multi_fetch_episode_title(start_index, end_index)
 
         # print(responses)
         print("데이터 추출이 완료되었습니다.")
@@ -458,91 +455,85 @@ class NWebtoon:
             download_index += 1
         return result
 
-    # 이미지 링크 추출 비동기 버전 - [웹툰 제목에 대한 폴더 생성 & 이미지 링크 추출 + 경로 생성]
-    async def async_fetch_episode_title(
-        self, session: aiohttp.ClientSession, no: int
-    ) -> EpisodeUrlTuple:
+    # 이미지 링크 추출 동기 버전 - [웹툰 제목에 대한 폴더 생성 & 이미지 링크 추출 + 경로 생성]
+    def fetch_episode_title(self, no: int) -> EpisodeUrlTuple:
         url = f"https://comic.naver.com/{self.__wtype}/detail?titleId={self.__title_id}&no={no}"
-        async with session.get(url) as response:
-            # html : byte = await response.read()
-            html: str = await response.text()
 
-            # id가 subTitle_toolbar인 태그를 찾음.
-            pattern = re.compile(
-                r'<[^>]*id="subTitle_toolbar"[^>]*>(.*?)</[^>]*>', re.DOTALL
-            )
+        # requests를 사용한 동기 방식으로 변경
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        }
+        cookies = {"NID_AUT": self.NID_AUT, "NID_SES": self.NID_SES}
 
-            # HTML 코드에서 패턴을 찾습니다.
-            match = pattern.search(html)
+        response = requests.get(url, headers=headers, cookies=cookies)
+        html: str = response.text
 
-            # 매칭된 결과를 가져옵니다.
+        # id가 subTitle_toolbar인 태그를 찾음.
+        pattern = re.compile(
+            r'<[^>]*id="subTitle_toolbar"[^>]*>(.*?)</[^>]*>', re.DOTALL
+        )
 
-            if match:
-                episode_title = match.group(1).strip()
-            else:
-                # 제목을 가져오지 못하면 빈 튜플 반환후 종료
-                return EpisodeUrlTuple()
+        # HTML 코드에서 패턴을 찾습니다.
+        match = pattern.search(html)
 
-            # title 에서 폴더 생성이 불가한 문자 제거
-            episode_title = self.filename_remover(episode_title)
+        # 매칭된 결과를 가져옵니다.
+        if match:
+            episode_title = match.group(1).strip()
+        else:
+            # 제목을 가져오지 못하면 빈 튜플 반환후 종료
+            return EpisodeUrlTuple()
 
-            # exist_ok라는 파라미터를 True로 하면 해당 디렉토리가 기존에 존재하면
-            # 에러발생 없이 넘어가고, 없을 경우에만 생성합니다.
+        # title 에서 폴더 생성이 불가한 문자 제거
+        episode_title = self.filename_remover(episode_title)
 
-            # 다운로드할 메인 폴더 생성
-            os.makedirs(self.__settings.download_path, exist_ok=True)
+        # exist_ok라는 파라미터를 True로 하면 해당 디렉토리가 기존에 존재하면
+        # 에러발생 없이 넘어가고, 없을 경우에만 생성합니다.
 
-            # 제목에 맞게 폴더 생성 (메인 폴더 안에 들어갈 폴더)
-            os.makedirs(
-                os.path.join(
-                    self.__settings.download_path,
-                    self.__title,
-                    f"[{no}] {episode_title}",
-                ),
-                exist_ok=True,
-            )
+        # 다운로드할 메인 폴더 생성
+        os.makedirs(self.__settings.download_path, exist_ok=True)
 
-            # id가 sectionContWide 인 태그를 찾음. (img 태그를 묶는 전체 div 태그)
-            pattern = re.compile(
-                r'<div.*?id="sectionContWide".*?>(.*?)</div>', re.DOTALL
-            )
-            img_srcs = re.findall(pattern, html)
+        # 제목에 맞게 폴더 생성 (메인 폴더 안에 들어갈 폴더)
+        os.makedirs(
+            os.path.join(
+                self.__settings.download_path,
+                self.__title,
+                f"[{no}] {episode_title}",
+            ),
+            exist_ok=True,
+        )
 
-            # 그 안에서 img 태그를 찾아서 src 속성을 가져와 리스트로 저장 (src_list)
-            inner_html = img_srcs[0] if img_srcs else ""
-            pattern = re.compile(r'<img.*?src="(.*?)".*?>', re.DOTALL)
-            img_srcs: list[str] = re.findall(pattern, inner_html)
-            return EpisodeUrlTuple(no, episode_title, img_srcs)
+        # id가 sectionContWide 인 태그를 찾음. (img 태그를 묶는 전체 div 태그)
+        pattern = re.compile(r'<div.*?id="sectionContWide".*?>(.*?)</div>', re.DOTALL)
+        img_srcs = re.findall(pattern, html)
 
-    # async_fetch_episode_title 함수를 비동기적으로 한꺼번에 등록 & 실행해서
+        # 그 안에서 img 태그를 찾아서 src 속성을 가져와 리스트로 저장 (src_list)
+        inner_html = img_srcs[0] if img_srcs else ""
+        pattern = re.compile(r'<img.*?src="(.*?)".*?>', re.DOTALL)
+        img_srcs: list[str] = re.findall(pattern, inner_html)
+        return EpisodeUrlTuple(no, episode_title, img_srcs)
+
+    # fetch_episode_title 함수를 동기적으로 순차적으로 실행해서
     # 결과를 받아오는 함수 (실제로 사용하는 함수)
 
-    async def async_multi_fetch_episode_title(
+    def multi_fetch_episode_title(
         self, start_index: int, end_index: int
     ) -> EpisodeResults:
-        # 세션은 변수 한개만 사용해서 공유하면 됨.
-        cookies = {"NID_AUT": self.NID_AUT, "NID_SES": self.NID_SES}
-        async with aiohttp.ClientSession(cookies=cookies) as session:
-            tasks = []
-            # for문으로 예약작업 리스트에 담기 (비동기적으로 처리되므로 여기서 바로 실행되지 않음)
-            for episode in range(start_index, end_index + 1):
-                task = asyncio.ensure_future(
-                    self.async_fetch_episode_title(session, episode)
-                )
-                tasks.append(task)
+        responses: EpisodeResults = []
 
-            # 이곳에서 한꺼번에 실행후 결과를 받음
-            # results = await asyncio.gather(*tasks)
-            # for r in results:
-            #     print(r)
+        # tqdm을 사용하여 진행상황 표시
+        for episode in tqdm.tqdm(
+            range(start_index, end_index + 1), desc="에피소드 정보 수집"
+        ):
+            try:
+                result = self.fetch_episode_title(episode)
+                responses.append(result)
+            except Exception as e:
+                print(f"에피소드 {episode} 처리 중 오류 발생: {e}")
+                # 오류가 발생해도 빈 튜플을 추가하여 인덱스 유지
+                responses.append(EpisodeUrlTuple())
 
-            # tdqm 활용하여 비동기 작업 진행상황 표시
-            responses: EpisodeResults = []
-            for f in tqdm.tqdm(asyncio.as_completed(tasks), total=len(tasks)):
-                responses.append(await f)
-
-            # 결과값 리턴
-            return responses
+        # 결과값 리턴
+        return responses
 
     def set_asyncio_event_loop_policy(self) -> None:
         py_ver = int(f"{sys.version_info.major}{sys.version_info.minor}")
