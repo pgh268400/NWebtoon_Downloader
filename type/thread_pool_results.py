@@ -4,6 +4,7 @@
 
 from typing import List, NamedTuple
 from dataclasses import field
+
 # 이름을 가지는 튜플 타입 정의
 
 

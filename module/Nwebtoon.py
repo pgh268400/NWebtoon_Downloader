@@ -20,8 +20,13 @@ import tqdm
 from module.headers import headers, image_headers
 from module.settings import FileSettingType, Setting
 from type.api_article_list_info import NWebtoonMainData, WebtoonCode, WebtoonType
-from type.api_search_all import NWebtoonSearchData, searchView
-from type.thread_pool_results import EpisodeResults, EpisodeUrlTuple, UrlPathTuple, UrlPathListResults
+from type.api_search_all import NWebtoonSearchData, SearchView
+from type.thread_pool_results import (
+    EpisodeResults,
+    EpisodeUrlTuple,
+    UrlPathTuple,
+    UrlPathListResults,
+)
 
 
 download_index = 1  # 다운로드 인덱스 카운트
@@ -53,8 +58,8 @@ class NWebtoon:
         self.__number: int = 0
         self.__content: str = ""
 
-        exp = '[0-9]{5,6}'
-        if 'titleId=' in query:  # 입력값에 titleid가 존재하면
+        exp = "[0-9]{5,6}"
+        if "titleId=" in query:  # 입력값에 titleid가 존재하면
             id_pattern = re.search(exp, query)
             if id_pattern:
                 self.__title_id = id_pattern.group()
@@ -69,14 +74,14 @@ class NWebtoon:
                 self.__title_id = self.search(query)
 
         res = requests.get(
-            f"https://comic.naver.com/api/article/list/info?titleId={self.__title_id}")
+            f"https://comic.naver.com/api/article/list/info?titleId={self.__title_id}"
+        )
 
         # json.loads()를 사용하여 JSON 응답을 파이썬 객체로 변환
         json_res: dict = json.loads(res.content)
 
         # JSON 응답 딕셔너리를 미리 타입 정의한 Dataclass로 변환 (type-safety)
-        webtoon: NWebtoonMainData = NWebtoonMainData.from_dict(  # type: ignore
-            json_res)
+        webtoon: NWebtoonMainData = NWebtoonMainData.from_dict(json_res)  # type: ignore
 
         self.__title = webtoon.titleName  # 웹툰 제목
         # 웹툰 제목에서 특수문자 유니코드 문자로 변환 (폴더로 사용할 수 없는 문자 제거)
@@ -95,27 +100,31 @@ class NWebtoon:
 
         # no에 아주 큰 값을 넣어서 리다이렉트되는 주소를 가져옴
         res = requests.get(
-            f"https://comic.naver.com/{self.__wtype}/detail?titleId={self.__title_id}&no=999999", allow_redirects=True)
+            f"https://comic.naver.com/{self.__wtype}/detail?titleId={self.__title_id}&no=999999",
+            allow_redirects=True,
+        )
         redirected_url = res.url
 
         cookies = {}
 
         # 웹툰 리다이렉트 주소가 로그인 주소인 경우 성인웹툰임
-        if ("https://nid.naver.com/nidlogin.login" in redirected_url):
+        if "https://nid.naver.com/nidlogin.login" in redirected_url:
             self.__isadult = True
 
             # NID_AUT, NID_SES 쿠키를 받아서 다시 요청
-            print('성인 웹툰입니다. 로그인 정보를 입력해주세요.')
+            print("성인 웹툰입니다. 로그인 정보를 입력해주세요.")
             NID_AUT = input("NID_AUT : ")
             NID_SES = input("NID_SES : ")
             self.set_session(NID_AUT, NID_SES)  # 객체에 세션 데이터 넘기기 : Setter
             cookies = {"NID_AUT": NID_AUT, "NID_SES": NID_SES}
 
         res = requests.get(
-            f"https://comic.naver.com/api/article/list?titleId={self.__title_id}&page=1", cookies=cookies)
+            f"https://comic.naver.com/api/article/list?titleId={self.__title_id}&page=1",
+            cookies=cookies,
+        )
         json_res: dict = json.loads(res.content)
 
-        self.__number = int(json_res['totalCount'])
+        self.__number = int(json_res["totalCount"])
 
         adult_parse = webtoon.age.type
         # print(webtoon.age.type)
@@ -130,8 +139,11 @@ class NWebtoon:
         self.NID_SES = NID_SES
 
     # 웹툰 검색 API searchViewList 웹툰 / 도전만화 / 베스트도전 만화에 따라 파싱해주는 함수
-    def search_api_parser(self, webtoon: NWebtoonSearchData, type: Literal["webtoon",
-                                                                           "challenge", "bestChallenge"]):
+    def search_api_parser(
+        self,
+        webtoon: NWebtoonSearchData,
+        type: Literal["webtoon", "challenge", "bestChallenge"],
+    ):
         if type == "webtoon":
             webtoon_lst = webtoon.searchWebtoonResult.searchViewList
         elif type == "bestChallenge":
@@ -146,10 +158,10 @@ class NWebtoon:
         # 우리는 만들어진 튜플을 파이썬의 (,) unpacking 기능을 이용하여 인덱스와 원소를 각각의 변수에 저장할 것이다.
         # 리스트를 반복하면서 인덱스를 활용하는 파이썬 스러운 방법이다! So cool!
         # 라고 잘 적어놨으나 여기서 i 인덱스를 만들어줄 이유가 없어서 일단은.. enumerate() 함수의 원리만 이해하도록 하자 ㅎㅎ;
-        
+
         result = []
         for i, search_view in enumerate(webtoon_lst, 1):
-            search_view: searchView  # type hinting
+            search_view: SearchView  # type hinting
 
             title_name = search_view.titleName
             display_author = search_view.displayAuthor
@@ -179,7 +191,8 @@ class NWebtoon:
 
             # json 응답을 미리 정의한 dataclass 타입으로 변환(type-safety)
             webtoon: NWebtoonSearchData = NWebtoonSearchData.from_dict(  # type: ignore
-                res_json)
+                res_json
+            )
 
             # 일반 웹툰, 베스트 도전, 도전만화 갯수 파싱
             webtoon_cnt = webtoon.searchWebtoonResult.totalCount
@@ -189,39 +202,39 @@ class NWebtoon:
             if (webtoon_cnt + best_challenge_cnt + challenge_cnt) == 0:
                 keyword = ""
                 while not keyword.strip():
-                    keyword = input('검색 결과가 없습니다. 다시 검색해주세요 : ')
+                    keyword = input("검색 결과가 없습니다. 다시 검색해주세요 : ")
                 # exit()
             else:
                 break
 
         i = 1
 
-        print(f'[bold green]-----웹툰 검색결과-----[/bold green]')
+        print(f"[bold green]-----웹툰 검색결과-----[/bold green]")
         print(f"[상위 5개] ---- 총 {webtoon_cnt}개")
         webtoon_result = self.search_api_parser(webtoon, "webtoon")
         for element in webtoon_result:
             print(f"[bold red]{i}.[/bold red] {element[0]}")
             i += 1
 
-        print(f'[bold green]-----베스트 도전 검색결과-----[/bold green]')
+        print(f"[bold green]-----베스트 도전 검색결과-----[/bold green]")
         print(f"[상위 5개] ---- 총 {best_challenge_cnt}개")
-        best_challenge_result = self.search_api_parser(
-            webtoon, "bestChallenge")
+        best_challenge_result = self.search_api_parser(webtoon, "bestChallenge")
         for element in best_challenge_result:
             print(f"[bold red]{i}.[/bold red] {element[0]}")
             i += 1
 
-        print(f'[bold green]-----도전만화 검색결과-----[/bold green]')
+        print(f"[bold green]-----도전만화 검색결과-----[/bold green]")
         print(f"[상위 5개] ---- 총 {challenge_cnt}개")
         challenge_result = self.search_api_parser(webtoon, "challenge")
         for element in challenge_result:
             print(f"[bold red]{i}.[/bold red] {element[0]}")
             i += 1
 
-        all_result = webtoon_result + best_challenge_result + \
-            challenge_result  # use list comprehension
+        all_result = (
+            webtoon_result + best_challenge_result + challenge_result
+        )  # use list comprehension
 
-        msg = '>>> 선택할 웹툰의 번호를 입력해주세요 : '
+        msg = ">>> 선택할 웹툰의 번호를 입력해주세요 : "
         while True:
             try:
                 index = int(input(msg))
@@ -247,14 +260,14 @@ class NWebtoon:
         processed_string: str = string.translate(table)
 
         # 2. \t 과 \n제거 (\t -> 공백 , \n -> 공백)
-        table = str.maketrans('\t\n', "  ")
+        table = str.maketrans("\t\n", "  ")
         processed_string = processed_string.translate(table)
         return processed_string
 
     def tag_remover(self, string: str) -> str:
         # <tag>, &nbfs 등등 제거
-        cleaner = re.compile('<.*?>|&([a-z0-9]+|#[0-9]{1,6}|#x[0-9a-f]{1,6});')
-        string = re.sub(cleaner, '', string)
+        cleaner = re.compile("<.*?>|&([a-z0-9]+|#[0-9]{1,6}|#x[0-9a-f]{1,6});")
+        string = re.sub(cleaner, "", string)
         return string
 
     # URL 이미지 다운로드에 실제로 사용하는 함수
@@ -276,10 +289,13 @@ class NWebtoon:
         thread_count = multiprocessing.cpu_count() * 2
 
         print("웹툰 이미지 링크를 추출하고, 타이틀 명으로 폴더 생성을 시작합니다...")
-        print("너무 오랫동안 지연되거나 멈추면 프로그램을 종료 후 몇초 후 기다렸다가 다시 실행해주세요.")
+        print(
+            "너무 오랫동안 지연되거나 멈추면 프로그램을 종료 후 몇초 후 기다렸다가 다시 실행해주세요."
+        )
         self.set_asyncio_event_loop_policy()
         responses = asyncio.run(
-            self.async_multi_fetch_episode_title(start_index, end_index))
+            self.async_multi_fetch_episode_title(start_index, end_index)
+        )
 
         # print(responses)
         print("데이터 추출이 완료되었습니다.")
@@ -294,14 +310,20 @@ class NWebtoon:
             # 튜플이 비었으면 무시
             if item.title_name != "":
                 folder_idx = str(item.no).zfill(
-                    self.__settings.get_zero_fill(FileSettingType.Folder))
+                    self.__settings.get_zero_fill(FileSettingType.Folder)
+                )
                 folder_title = item.title_name
                 img_url_list = item.img_src_list
                 for img_url in img_url_list:
                     img_z_fill = str(img_idx).zfill(
-                        self.__settings.get_zero_fill(FileSettingType.Image))
+                        self.__settings.get_zero_fill(FileSettingType.Image)
+                    )
                     img_path = os.path.join(
-                        self.__settings.download_path, self.__title,  f"[{folder_idx}] {folder_title}", f"{img_z_fill}.jpg")
+                        self.__settings.download_path,
+                        self.__title,
+                        f"[{folder_idx}] {folder_title}",
+                        f"{img_z_fill}.jpg",
+                    )
                     processed_data.append(UrlPathTuple(img_url, img_path))
                     img_idx += 1
             img_idx = 0
@@ -332,8 +354,9 @@ class NWebtoon:
         # 이를 통해 극적인 속도 향상을 얻음.
 
         # start = time.time()  # 시작 시간 저장
-        results: UrlPathListResults = ThreadPool(thread_count).imap_unordered(self.p_image_download,
-                                                                              processed_data)  # type: ignore
+        results: UrlPathListResults = ThreadPool(thread_count).imap_unordered(
+            self.p_image_download, processed_data
+        )  # type: ignore
 
         for element in results:
             print(element.img_url, element.path)
@@ -342,7 +365,7 @@ class NWebtoon:
 
     async def async_download_image(self, session, url, path):
         async with session.get(url) as response:
-            with open(path, 'wb') as f:
+            with open(path, "wb") as f:
                 f.write(await response.content.read())
                 print(f"{url} 이미지 다운로드 완료")
 
@@ -350,8 +373,9 @@ class NWebtoon:
         async with aiohttp.ClientSession() as session:
             tasks = []
             for url, path in image_list:
-                tasks.append(asyncio.ensure_future(
-                    self.async_download_image(session, url, path)))
+                tasks.append(
+                    asyncio.ensure_future(self.async_download_image(session, url, path))
+                )
             await asyncio.gather(*tasks)
 
     # 웹툰 제목에 맞게 폴더 생성 + 이미지 링크 추출(경로 포함)
@@ -363,18 +387,20 @@ class NWebtoon:
         for i in range(start_index, end_index + 1):
             # fstring으로 변경
             url = f"https://comic.naver.com/{self.__wtype}/detail?titleId={self.__title_id}&no={i}"
-            cookies = {'NID_AUT': self.NID_AUT, 'NID_SES': self.NID_SES}
+            cookies = {"NID_AUT": self.NID_AUT, "NID_SES": self.NID_SES}
             req = requests.get(url, cookies=cookies)
-            soup = BeautifulSoup(req.content, 'html.parser')
+            soup = BeautifulSoup(req.content, "html.parser")
 
             # 만화가 없는 페이지일 경우 리스트에 추가하지 않음.
-            if not soup.select('#subTitle_toolbar'):
+            if not soup.select("#subTitle_toolbar"):
                 print(
-                    f'no={i}가 없습니다. 순번이 존재 하지 않거나 미리보기, 유료화된 페이지입니다. 다운로드 하지 않고 SKIP 합니다.')
+                    f"no={i}가 없습니다. 순번이 존재 하지 않거나 미리보기, 유료화된 페이지입니다. 다운로드 하지 않고 SKIP 합니다."
+                )
                 continue
 
-            manga_title = soup.select('#subTitle_toolbar')[
-                0].get_text()  # 웹툰 제목 가져오기
+            manga_title = soup.select("#subTitle_toolbar")[
+                0
+            ].get_text()  # 웹툰 제목 가져오기
             manga_title = manga_title.strip()  # 양 끝 공백 제거
             # 리스트를 string 으로 바꾸고 불필요한 string 제거한다.
             manga_title = self.filename_remover(manga_title)
@@ -402,26 +428,26 @@ class NWebtoon:
                 os.makedirs(self.__settings.download_path)
 
             try:
-                print(f'[디렉토리 생성] {manga_title}')
+                print(f"[디렉토리 생성] {manga_title}")
                 os.makedirs(path)
             except OSError as e:
                 if e.errno != errno.EEXIST:
-                    print('폴더 생성중 오류가 발생하였습니다')
+                    print("폴더 생성중 오류가 발생하였습니다")
                     raise
 
-            image_url = soup.select('div.wt_viewer > img')
+            image_url = soup.select("div.wt_viewer > img")
             j = 0
 
             s = Setting()
             image_zfill_cnt = s.get_zero_fill(FileSettingType.Image)
             for img in image_url:
-                url = str(img['src'])
+                url = str(img["src"])
 
                 parsed = parse.urlparse(url)
                 name, ext = os.path.splitext(parsed.path)
                 _path = os.path.join(path, str(j).zfill(image_zfill_cnt) + ext)
 
-                if not 'img-ctguide-white.png' in url:  # 컷툰이미지 제거하기
+                if not "img-ctguide-white.png" in url:  # 컷툰이미지 제거하기
                     # URL,PATH 형식으로 List에 저장
                     # Tuple[str, str]를 UrlPath로 변환하여 추가
                     result.append(UrlPathTuple(url, self.tag_remover(_path)))
@@ -431,15 +457,18 @@ class NWebtoon:
         return result
 
     # 이미지 링크 추출 비동기 버전 - [웹툰 제목에 대한 폴더 생성 & 이미지 링크 추출 + 경로 생성]
-    async def async_fetch_episode_title(self, session: aiohttp.ClientSession, no: int) -> EpisodeUrlTuple:
-        url = f'https://comic.naver.com/{self.__wtype}/detail?titleId={self.__title_id}&no={no}'
+    async def async_fetch_episode_title(
+        self, session: aiohttp.ClientSession, no: int
+    ) -> EpisodeUrlTuple:
+        url = f"https://comic.naver.com/{self.__wtype}/detail?titleId={self.__title_id}&no={no}"
         async with session.get(url) as response:
             # html : byte = await response.read()
             html: str = await response.text()
 
             # id가 subTitle_toolbar인 태그를 찾음.
             pattern = re.compile(
-                r'<[^>]*id="subTitle_toolbar"[^>]*>(.*?)</[^>]*>', re.DOTALL)
+                r'<[^>]*id="subTitle_toolbar"[^>]*>(.*?)</[^>]*>', re.DOTALL
+            )
 
             # HTML 코드에서 패턴을 찾습니다.
             match = pattern.search(html)
@@ -462,16 +491,23 @@ class NWebtoon:
             os.makedirs(self.__settings.download_path, exist_ok=True)
 
             # 제목에 맞게 폴더 생성 (메인 폴더 안에 들어갈 폴더)
-            os.makedirs(os.path.join(self.__settings.download_path, self.__title,
-                        f"[{no}] {episode_title}"), exist_ok=True)
+            os.makedirs(
+                os.path.join(
+                    self.__settings.download_path,
+                    self.__title,
+                    f"[{no}] {episode_title}",
+                ),
+                exist_ok=True,
+            )
 
             # id가 sectionContWide 인 태그를 찾음. (img 태그를 묶는 전체 div 태그)
             pattern = re.compile(
-                r'<div.*?id="sectionContWide".*?>(.*?)</div>', re.DOTALL)
+                r'<div.*?id="sectionContWide".*?>(.*?)</div>', re.DOTALL
+            )
             img_srcs = re.findall(pattern, html)
 
             # 그 안에서 img 태그를 찾아서 src 속성을 가져와 리스트로 저장 (src_list)
-            inner_html = img_srcs[0] if img_srcs else ''
+            inner_html = img_srcs[0] if img_srcs else ""
             pattern = re.compile(r'<img.*?src="(.*?)".*?>', re.DOTALL)
             img_srcs: list[str] = re.findall(pattern, inner_html)
             return EpisodeUrlTuple(no, episode_title, img_srcs)
@@ -479,15 +515,18 @@ class NWebtoon:
     # async_fetch_episode_title 함수를 비동기적으로 한꺼번에 등록 & 실행해서
     # 결과를 받아오는 함수 (실제로 사용하는 함수)
 
-    async def async_multi_fetch_episode_title(self, start_index: int, end_index: int) -> EpisodeResults:
+    async def async_multi_fetch_episode_title(
+        self, start_index: int, end_index: int
+    ) -> EpisodeResults:
         # 세션은 변수 한개만 사용해서 공유하면 됨.
-        cookies = {'NID_AUT': self.NID_AUT, 'NID_SES': self.NID_SES}
+        cookies = {"NID_AUT": self.NID_AUT, "NID_SES": self.NID_SES}
         async with aiohttp.ClientSession(cookies=cookies) as session:
             tasks = []
             # for문으로 예약작업 리스트에 담기 (비동기적으로 처리되므로 여기서 바로 실행되지 않음)
             for episode in range(start_index, end_index + 1):
                 task = asyncio.ensure_future(
-                    self.async_fetch_episode_title(session, episode))
+                    self.async_fetch_episode_title(session, episode)
+                )
                 tasks.append(task)
 
             # 이곳에서 한꺼번에 실행후 결과를 받음
@@ -505,9 +544,8 @@ class NWebtoon:
 
     def set_asyncio_event_loop_policy(self) -> None:
         py_ver = int(f"{sys.version_info.major}{sys.version_info.minor}")
-        if py_ver > 37 and sys.platform.startswith('win'):
-            asyncio.set_event_loop_policy(
-                asyncio.WindowsSelectorEventLoopPolicy())
+        if py_ver > 37 and sys.platform.startswith("win"):
+            asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
     # 다중 이미지 다운로드
 
@@ -537,26 +575,26 @@ class NWebtoon:
 
     # Getter 함수 구현 (프로퍼티)
 
-    @ property
+    @property
     def title(self) -> str:
         return self.__title
 
-    @ property
+    @property
     def title_id(self) -> str:
         return self.__title_id
 
-    @ property
+    @property
     def content(self) -> str:
         return self.__content
 
-    @ property
+    @property
     def wtype(self) -> WebtoonType:
         return self.__wtype
 
-    @ property
+    @property
     def isadult(self) -> bool:
         return self.__isadult
 
-    @ property
+    @property
     def number(self) -> int:
         return self.__number

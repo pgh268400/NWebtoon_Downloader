@@ -1,20 +1,17 @@
 import json
 from typing import List
-from dataclasses import dataclass, field
-from dataclasses_json import dataclass_json
+from pydantic import BaseModel, Field
 
 from type.api_article_list_info import Age, Author
 
 
-@dataclass_json
-@dataclass
-class searchView:
+class SearchView(BaseModel):
     titleId: int = 0
     titleName: str = ""
     webtoonLevelCode: str = ""
     thumbnailUrl: str = ""
     displayAuthor: str = ""
-    author: Author = Author()
+    author: Author = Field(default_factory=Author)
     synopsis: str = ""
     finished: bool = False
     adult: bool = False
@@ -27,50 +24,49 @@ class searchView:
     potenUp: bool = False
     articleTotalCount: int = 0
     lastArticleServiceDate: str = ""
-    tagList: List[str] = field(default_factory=list)
-    genreList: List[Age] = field(default_factory=list)
+    tagList: List[str] = Field(default_factory=list)
+    genreList: List[Age] = Field(default_factory=list)
     new: bool = False
 
 
-@dataclass_json
-@dataclass
-class searchBestChallenge:
+class SearchBestChallenge(BaseModel):
     totalCount: int = 0
-    searchViewList: List[searchView] = field(default_factory=list)
+    searchViewList: List[SearchView] = Field(default_factory=list)
 
 
-@dataclass_json
-@dataclass
-class searchNbooksComic(searchBestChallenge):
+class SearchNbooksComic(SearchBestChallenge):
     pass
 
 
-@dataclass_json
-@dataclass
-class searchWebtoon(searchBestChallenge):
+class SearchWebtoon(SearchBestChallenge):
     pass
 
 
-@dataclass_json
-@dataclass
-class searchChallenge(searchBestChallenge):
+class SearchChallenge(SearchBestChallenge):
     pass
 
 
-@dataclass_json
-@dataclass
-class searchNbooksNovel(searchBestChallenge):
+class SearchNbooksNovel(SearchBestChallenge):
     pass
 
 
-@dataclass_json
-@dataclass
-class NWebtoonSearchData:
-    searchWebtoonResult: searchWebtoon = searchWebtoon()
-    searchBestChallengeResult: searchBestChallenge = searchBestChallenge()
-    searchChallengeResult: searchChallenge = searchChallenge()
-    searchNbooksComicResult: searchNbooksComic = searchNbooksComic()
-    searchNbooksNovelResult: searchNbooksNovel = searchNbooksNovel()
+class NWebtoonSearchData(BaseModel):
+    searchWebtoonResult: SearchWebtoon = Field(default_factory=SearchWebtoon)
+    searchBestChallengeResult: SearchBestChallenge = Field(
+        default_factory=SearchBestChallenge
+    )
+    searchChallengeResult: SearchChallenge = Field(default_factory=SearchChallenge)
+    searchNbooksComicResult: SearchNbooksComic = Field(
+        default_factory=SearchNbooksComic
+    )
+    searchNbooksNovelResult: SearchNbooksNovel = Field(
+        default_factory=SearchNbooksNovel
+    )
+
+    # 기존 호출부 유지: dataclasses_json의 .from_dict 대체
+    @classmethod
+    def from_dict(cls, data: dict):
+        return cls.model_validate(data)
 
 
 if __name__ == "__main__":
