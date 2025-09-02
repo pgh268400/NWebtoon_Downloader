@@ -192,10 +192,6 @@ class NWebtoon:
             # json.loads()를 사용하여 JSON 응답을 파이썬 객체로 변환
             res_json = json.loads(res.content)
 
-            # JSON 응답을 파일로 저장
-            with open("api_search_all.json", "w", encoding="utf-8") as f:
-                json.dump(res_json, f, ensure_ascii=False, indent=2)
-
             # json 응답을 미리 정의한 dataclass 타입으로 변환(type-safety)
             webtoon: NWebtoonSearchData = NWebtoonSearchData.from_dict(res_json)
 
@@ -271,7 +267,6 @@ class NWebtoon:
         # 1-10
 
         # 멀티 프로세싱을 이용한 병렬 다운로드 처리
-        # download_index = int(dialog.split('-')[0])
         download_index = start_index
         thread_count = multiprocessing.cpu_count() * 2
 
