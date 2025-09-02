@@ -2,7 +2,7 @@ import json
 from typing import List, Any, Dict
 from pydantic import BaseModel, Field, ConfigDict
 
-from type.api_article_list_info import Author
+from type.api.comic_info import Author
 
 
 class CurationTag(BaseModel):

@@ -2,7 +2,7 @@ from enum import auto
 import json
 from typing import List, Any, Dict
 from pydantic import BaseModel, Field, ConfigDict
-from type.nwebtoon import StrEnum
+from type.str_enum import StrEnum
 
 """
 기존에 dataclass <-> json 변환간 사용하던 dataclasses_json 라이브러리가 파이썬 최신 버전에서 제대로 유지 보수 되지 않는걸 확인

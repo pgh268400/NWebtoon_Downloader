@@ -2,7 +2,7 @@ from enum import auto
 import os
 import configparser
 
-from type.nwebtoon import StrEnum
+from type.str_enum import StrEnum
 
 # INI 파일을 쉽게 관리하기 위해
 # 사용하는 클래스 (싱글톤?)

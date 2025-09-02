@@ -1,6 +1,5 @@
 import os
 import re
-from pathlib import Path
 import chardet
 from .image_merger import ImageMerger
 from jinja2 import Template  # html 템플릿용
@@ -23,9 +22,9 @@ class HtmlMaker(ImageMerger):
 
     def __read_file(self, path) -> str:
         # 파일 열어서 인코딩 확인
-        rawdata = open(path, 'rb').read()
+        rawdata = open(path, "rb").read()
         result = chardet.detect(rawdata)
-        enc = result['encoding']
+        enc = result["encoding"]
 
         # 인코딩 맞게 열기
         f = open(path, "r", encoding=enc)
@@ -48,15 +47,16 @@ class HtmlMaker(ImageMerger):
                 return
 
             rel_base_path: str = os.path.dirname(
-                file_lst[0])  # 웹툰이 저장되어 있는 폴더 경로
+                file_lst[0]
+            )  # 웹툰이 저장되어 있는 폴더 경로
             base_path: str = os.path.abspath(rel_base_path)  # 절대경로로 변환
             print("기반 경로 : ", base_path)
 
             # 폴더명에서 숫자만 추출 (몇화를 작업하고 있는지 숫자 저장)
-            numbers = int(re.findall(r'\[(\d+)\]', base_path)[0])
+            numbers = int(re.findall(r"\[(\d+)\]", base_path)[0])
 
             # 기존에 생성한 index.html을 삭제한다.
-            output_path = os.path.join(base_path, 'index.html')
+            output_path = os.path.join(base_path, "index.html")
 
             if os.path.isfile(output_path):
                 os.remove(output_path)
@@ -71,18 +71,28 @@ class HtmlMaker(ImageMerger):
                 file = file.lower()
 
                 # 이미지 파일이고, output.png가 아닌 경우만 추가한다.
-                if file.endswith('output.png'):
+                if file.endswith("output.png"):
                     continue
 
-                if file.endswith('.png') or file.endswith('.jpg') or file.endswith('.jpeg'):
+                if (
+                    file.endswith(".png")
+                    or file.endswith(".jpg")
+                    or file.endswith(".jpeg")
+                ):
                     img_lst.append(os.path.basename(file))
 
             # print(img_lst)
 
             # 부모 경로에서 [다음화] 로 시작하는 폴더 이름을 가져온다.
             parent_path = os.path.dirname(base_path)
-            next_folder_name = next((folder for folder in os.listdir(
-                parent_path) if folder.startswith(f'[{numbers+1}]')), None)
+            next_folder_name = next(
+                (
+                    folder
+                    for folder in os.listdir(parent_path)
+                    if folder.startswith(f"[{numbers+1}]")
+                ),
+                None,
+            )
 
             print(parent_path)
 
@@ -94,8 +104,14 @@ class HtmlMaker(ImageMerger):
 
             # 부모 경로에서 [이전화] 로 시작하는 폴더 이름을 가져온다.
             parent_path = os.path.dirname(base_path)
-            prev_folder_name = next((folder for folder in os.listdir(
-                parent_path) if folder.startswith(f'[{numbers-1}]')), None)
+            prev_folder_name = next(
+                (
+                    folder
+                    for folder in os.listdir(parent_path)
+                    if folder.startswith(f"[{numbers-1}]")
+                ),
+                None,
+            )
 
             if prev_folder_name:
                 prev_web = os.path.join("../", prev_folder_name, "index.html")
@@ -106,11 +122,16 @@ class HtmlMaker(ImageMerger):
             # template.html을 읽고, 데이터를 채운다.
             html_data = self.__read_file("./module/template.html")
             html_data = Template(html_data).render(
-                title=self.__title, episode=episode, img_lst=img_lst, prev=prev_web, next=next_web)
+                title=self.__title,
+                episode=episode,
+                img_lst=img_lst,
+                prev=prev_web,
+                next=next_web,
+            )
 
             # index.html 파일을 생성한다.
-            index_path = os.path.join(base_path, 'index.html')
-            f = open(index_path, 'w', encoding="UTF-8")
+            index_path = os.path.join(base_path, "index.html")
+            f = open(index_path, "w", encoding="UTF-8")
             f.write(html_data)
             f.close()
             print(f"{index_path} 생성 완료")
@@ -134,18 +155,18 @@ class HtmlMaker(ImageMerger):
             pure_name_lst.append(item)
 
         html_path = [
-            os.path.join(self.__title, element, "index.html") for element in dir_lst]
+            os.path.join(self.__title, element, "index.html") for element in dir_lst
+        ]
 
         item_lst = list(zip(html_path, pure_name_lst))
 
         # template을 읽고, 데이터를 채운다.
         html_data = self.__read_file("./module/template2.html")
-        html_data = Template(html_data).render(
-            title=self.__title, item_lst=item_lst)
+        html_data = Template(html_data).render(title=self.__title, item_lst=item_lst)
 
         # index.html 파일을 생성한다.
         # index_path = os.path.join(user_input_path, 'index.html')
-        f = open(f'{self.__title}.html', 'w', encoding="UTF-8")
+        f = open(f"{self.__title}.html", "w", encoding="UTF-8")
         f.write(html_data)
         f.close()
         print(f"전체 인덱스 파일 생성 완료")
