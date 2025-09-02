@@ -1,15 +1,18 @@
 import asyncio
+from pprint import pprint
+import time
 import aiohttp
 import sys
 import os
-from typing import Dict, List, Tuple
+from typing import List, Tuple, Coroutine
 from dataclasses import dataclass
 
 # 상위 디렉토리를 Python 경로에 추가
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # 기존 pydantic 타입 정의 import
-from type.api.article_list import NWebtoonArticleListData, ArticleItem
+from module.headers import headers
+from type.api.article_list import NWebtoonArticleListData
 
 
 @dataclass
@@ -30,34 +33,64 @@ class WebtoonAnalysis:
     episodes: List[EpisodeInfo]
 
 
+@dataclass
+class WebtoonMetadata:
+    """웹툰 메타데이터를 담는 데이터 클래스"""
+
+    title_id: int
+    total_count: int
+    page_size: int
+    total_pages: int
+
+
+def timeit(func):
+    def wrapper(*args, **kwargs):
+        start = time.time()
+        result = func(*args, **kwargs)  # 실제 함수 실행
+        end = time.time()
+        print(f"{func.__name__} 실행 시간: {end - start:.4f}초")
+        return result
+
+    return wrapper
+
+
 class WebtoonAnalyzer:
     """웹툰 분석기 클래스"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.base_url = "https://comic.naver.com/api/article/list"
-        self.headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-        }
 
-    async def get_total_episode_count(self, title_id: int) -> int:
+    async def fetch_webtoon_metadata(self, title_id: int) -> WebtoonMetadata:
         """
-        웹툰의 전체 화수를 가져오는 함수
+        웹툰 글 목록 첫 페이지 API 데이터를 활용해 메타데이터를 가져오는 함수 (첫 번째 페이지 요청)
 
         Args:
             title_id: 웹툰의 titleId
 
         Returns:
-            전체 화수
+            웹툰 메타데이터 (전체 화수, 페이지 크기, 전체 페이지 수)
         """
         url = f"{self.base_url}?titleId={title_id}&page=1"
 
-        async with aiohttp.ClientSession(headers=self.headers) as session:
+        async with aiohttp.ClientSession(headers=headers) as session:
             async with session.get(url) as response:
+                # HTTP 요청에 성공한 경우
                 if response.status == 200:
                     data = await response.json()
                     # pydantic 모델을 사용하여 데이터 검증
                     article_list_data = NWebtoonArticleListData.from_dict(data)
-                    return article_list_data.totalCount
+
+                    # API 응답에서 실제 값들을 가져옴
+                    total_count = article_list_data.totalCount
+                    page_size = article_list_data.pageInfo.pageSize
+                    total_pages = article_list_data.pageInfo.totalPages
+
+                    return WebtoonMetadata(
+                        title_id=title_id,
+                        total_count=total_count,
+                        page_size=page_size,
+                        total_pages=total_pages,
+                    )
                 else:
                     raise Exception(f"API 요청 실패: {response.status}")
 
@@ -76,7 +109,7 @@ class WebtoonAnalyzer:
         """
         url = f"{self.base_url}?titleId={title_id}&page={page}"
 
-        async with aiohttp.ClientSession(headers=self.headers) as session:
+        async with aiohttp.ClientSession(headers=headers) as session:
             async with session.get(url) as response:
                 if response.status == 200:
                     data = await response.json()
@@ -84,19 +117,6 @@ class WebtoonAnalyzer:
                     return NWebtoonArticleListData.from_dict(data)
                 else:
                     raise Exception(f"페이지 {page} 요청 실패: {response.status}")
-
-    def calculate_total_pages(self, total_count: int, page_size: int = 20) -> int:
-        """
-        전체 페이지 수를 계산하는 함수
-
-        Args:
-            total_count: 전체 화수
-            page_size: 페이지당 화수 (기본값: 20)
-
-        Returns:
-            전체 페이지 수
-        """
-        return (total_count + page_size - 1) // page_size
 
     async def get_all_episodes(self, title_id: int) -> List[EpisodeInfo]:
         """
@@ -108,23 +128,25 @@ class WebtoonAnalyzer:
         Returns:
             모든 에피소드 정보 리스트
         """
-        # 먼저 전체 화수를 가져옴
-        total_count = await self.get_total_episode_count(title_id)
+        # 먼저 웹툰 메타데이터를 가져옴 (전체 화수, 페이지 크기, 전체 페이지 수)
+        metadata: WebtoonMetadata = await self.fetch_webtoon_metadata(title_id)
 
-        # 전체 페이지 수 계산
-        total_pages = self.calculate_total_pages(total_count)
+        print(metadata)
+        print(
+            f"  메타데이터: 전체 {metadata.total_count}화, 페이지당 {metadata.page_size}화, 총 {metadata.total_pages}페이지"
+        )
 
-        # 모든 페이지를 병렬로 요청
+        # 모든 페이지를 병렬로 요청 (no=1 ~ no=끝)
         tasks = []
-        for page in range(1, total_pages + 1):
+        for page in range(1, metadata.total_pages + 1):
             task = self.get_episode_list_page(title_id, page)
             tasks.append(task)
 
         # 모든 요청을 동시에 실행
-        responses = await asyncio.gather(*tasks)
+        responses: List[NWebtoonArticleListData] = await asyncio.gather(*tasks)
 
         # 모든 에피소드 정보를 수집
-        all_episodes = []
+        all_episodes: list[EpisodeInfo] = []
 
         for response in responses:
             # pydantic 모델의 articleList에서 에피소드 정보 추출
@@ -173,8 +195,8 @@ class WebtoonAnalyzer:
         Returns:
             웹툰 분석 결과
         """
-        # 전체 화수 가져오기
-        total_count = await self.get_total_episode_count(title_id)
+        # 웹툰 메타데이터 가져오기
+        metadata = await self.fetch_webtoon_metadata(title_id)
 
         # 모든 에피소드 정보 가져오기
         all_episodes = await self.get_all_episodes(title_id)
@@ -185,7 +207,7 @@ class WebtoonAnalyzer:
         )
 
         return WebtoonAnalysis(
-            total_count=total_count,
+            total_count=metadata.total_count,
             downloadable_count=downloadable_count,
             episodes=all_episodes,
         )
@@ -202,11 +224,20 @@ async def test_case_1():
     title_id = 717481
 
     try:
+        # 메타데이터만 먼저 테스트
+        print("1. 메타데이터 가져오기 테스트...")
+        metadata = await analyzer.fetch_webtoon_metadata(title_id)
+        print(f"   전체 화수: {metadata.total_count}")
+        print(f"   페이지당 화수: {metadata.page_size}")
+        print(f"   전체 페이지 수: {metadata.total_pages}")
+
+        # 전체 분석 테스트
+        print("\n2. 전체 웹툰 분석 테스트...")
         result = await analyzer.analyze_webtoon(title_id)
 
-        print(f"전체 화수: {result.total_count}")
-        print(f"다운로드 가능한 화수: {result.downloadable_count}")
-        print(f"전체 에피소드 수: {len(result.episodes)}")
+        print(f"   전체 화수: {result.total_count}")
+        print(f"   다운로드 가능한 화수: {result.downloadable_count}")
+        print(f"   전체 에피소드 수: {len(result.episodes)}")
 
         # 처음 5개와 마지막 5개 에피소드 출력
         print("\n처음 5개 에피소드:")
@@ -227,7 +258,7 @@ async def test_case_1():
                 print(f"  {episode.no}화: {episode.subtitle}")
 
         # 요약 정보
-        print(f"\n요약:")
+        print("\n요약:")
         print(f"  전체 화수: {result.total_count}")
         print(f"  다운로드 가능: {result.downloadable_count}화")
         print(f"  잠금 상태: {len(locked_episodes)}화")
@@ -252,11 +283,20 @@ async def test_case_2():
     title_id = 842399
 
     try:
+        # 메타데이터만 먼저 테스트
+        print("1. 메타데이터 가져오기 테스트...")
+        metadata = await analyzer.fetch_webtoon_metadata(title_id)
+        print(f"   전체 화수: {metadata.total_count}")
+        print(f"   페이지당 화수: {metadata.page_size}")
+        print(f"   전체 페이지 수: {metadata.total_pages}")
+
+        # 전체 분석 테스트
+        print("\n2. 전체 웹툰 분석 테스트...")
         result = await analyzer.analyze_webtoon(title_id)
 
-        print(f"전체 화수: {result.total_count}")
-        print(f"다운로드 가능한 화수: {result.downloadable_count}")
-        print(f"전체 에피소드 수: {len(result.episodes)}")
+        print(f"   전체 화수: {result.total_count}")
+        print(f"   다운로드 가능한 화수: {result.downloadable_count}")
+        print(f"   전체 에피소드 수: {len(result.episodes)}")
 
         # 처음 5개와 마지막 5개 에피소드 출력
         print("\n처음 5개 에피소드:")
@@ -277,7 +317,7 @@ async def test_case_2():
                 print(f"  {episode.no}화: {episode.subtitle}")
 
         # 요약 정보
-        print(f"\n요약:")
+        print("\n요약:")
         print(f"  전체 화수: {result.total_count}")
         print(f"  다운로드 가능: {result.downloadable_count}화")
         print(f"  잠금 상태: {len(locked_episodes)}화")
@@ -302,11 +342,20 @@ async def test_case_3():
     title_id = 183559
 
     try:
+        # 메타데이터만 먼저 테스트
+        print("1. 메타데이터 가져오기 테스트...")
+        metadata = await analyzer.fetch_webtoon_metadata(title_id)
+        print(f"   전체 화수: {metadata.total_count}")
+        print(f"   페이지당 화수: {metadata.page_size}")
+        print(f"   전체 페이지 수: {metadata.total_pages}")
+
+        # 전체 분석 테스트
+        print("\n2. 전체 웹툰 분석 테스트...")
         result = await analyzer.analyze_webtoon(title_id)
 
-        print(f"전체 화수: {result.total_count}")
-        print(f"다운로드 가능한 화수: {result.downloadable_count}")
-        print(f"전체 에피소드 수: {len(result.episodes)}")
+        print(f"   전체 화수: {result.total_count}")
+        print(f"   다운로드 가능한 화수: {result.downloadable_count}")
+        print(f"   전체 에피소드 수: {len(result.episodes)}")
 
         # 처음 5개와 마지막 5개 에피소드 출력
         print("\n처음 5개 에피소드:")
@@ -346,7 +395,7 @@ async def test_case_3():
 async def main():
     """웹툰 분석기 테스트 - 여러 웹툰으로 테스트"""
     print("웹툰 분석기 테스트 시작")
-    print("pydantic 타입 정의를 활용한 버전")
+    print("pydantic 타입 정의를 활용한 버전 (API 응답 기반 pageSize 사용)")
 
     # 여러 테스트 케이스 실행
     await test_case_1()  # 마음의소리2

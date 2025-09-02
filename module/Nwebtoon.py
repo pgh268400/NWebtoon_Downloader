@@ -17,6 +17,7 @@ from requests import get
 import tqdm
 
 # 경로는 main.py의 위치를 기준으로 import함에 주의
+from module.file_processor import FileProcessor
 from module.headers import headers, image_headers
 from module.settings import FileSettingType, Setting
 from type.api.comic_info import NWebtoonMainData, WebtoonCode, WebtoonType
@@ -40,9 +41,10 @@ class NWebtoon:
         웹툰 객체가 웹툰의 정보를 가질 수 있게 합니다.
         :param query: 검색어 (또는 웹툰 TITLE ID, URL 이 될수도 있음)
         """
-        # 생성자에서 파이썬 인스턴스 변수 초기화
+        # 생성자에서 파이썬 인스턴스 변수 초기화 ======================================
 
         self.__settings = Setting()  # 설정 파일 관리 객체 생성
+        self.__file_processor = FileProcessor()  # 폴더 / 파일 특수문자 제거용 객체
 
         # NID_AUT 와 NID_SES 는 나중에 get_session() 함수를 통해 받아올 것임.
         self.NID_SES: str = ""
@@ -84,8 +86,9 @@ class NWebtoon:
         webtoon: NWebtoonMainData = NWebtoonMainData.from_dict(json_res)
 
         self.__title = webtoon.titleName  # 웹툰 제목
-        # 웹툰 제목에서 특수문자 유니코드 문자로 변환 (폴더로 사용할 수 없는 문자 제거)
-        self.__title = self.filename_remover(self.__title)
+
+        # 웹툰 제목에서 특수문자 -> 유니코드 문자로 변환 (폴더로 사용할 수 없는 문자 제거)
+        self.__title = self.__file_processor.remove_forbidden_str(self.__title)
 
         self.__content = webtoon.synopsis  # 컨텐츠 가져오기
 
@@ -254,24 +257,6 @@ class NWebtoon:
         # print(f'선택한 웹툰의 title_id : {title_id}')
         return title_id
 
-    # 경로 금지 문자 제거, HTML문자 제거
-    def filename_remover(self, string: str) -> str:
-        # 1. 폴더에 들어갈 수 없는 특수문자를 들어갈 수 있는
-        # 특수한 유니코드 문자 (겉보기에 똑같은 문자)로 치환 시킨다.
-        table = str.maketrans('\\/:*?"<>|.', "￦／：＊？＂˂˃｜．")
-        processed_string: str = string.translate(table)
-
-        # 2. \t 과 \n제거 (\t -> 공백 , \n -> 공백)
-        table = str.maketrans("\t\n", "  ")
-        processed_string = processed_string.translate(table)
-        return processed_string
-
-    def tag_remover(self, string: str) -> str:
-        # <tag>, &nbfs 등등 제거
-        cleaner = re.compile("<.*?>|&([a-z0-9]+|#[0-9]{1,6}|#x[0-9a-f]{1,6});")
-        string = re.sub(cleaner, "", string)
-        return string
-
     # URL 이미지 다운로드에 실제로 사용하는 함수
     def image_download(self, url: str, file_name: str) -> None:
         with open(file_name, "wb") as file:  # open in binary mode
@@ -401,8 +386,9 @@ class NWebtoon:
                 0
             ].get_text()  # 웹툰 제목 가져오기
             manga_title = manga_title.strip()  # 양 끝 공백 제거
+
             # 리스트를 string 으로 바꾸고 불필요한 string 제거한다.
-            manga_title = self.filename_remover(manga_title)
+            manga_title = self.__file_processor.remove_forbidden_str(manga_title)
 
             # 설정값 읽어오기 (폴더 제로필)
             s = Setting()
@@ -412,7 +398,7 @@ class NWebtoon:
             z_fill_idx = str(download_index).zfill(folder_zfill_cnt)
             idx = f"[{z_fill_idx}] "
 
-            directory_title = self.filename_remover(self.__title)
+            directory_title = self.__file_processor.remove_forbidden_str(self.__title)
             img_path = os.path.join(directory_title, idx + manga_title)
 
             path = img_path
@@ -446,10 +432,12 @@ class NWebtoon:
                 name, ext = os.path.splitext(parsed.path)
                 _path = os.path.join(path, str(j).zfill(image_zfill_cnt) + ext)
 
-                if not "img-ctguide-white.png" in url:  # 컷툰이미지 제거하기
+                if "img-ctguide-white.png" not in url:  # 컷툰이미지 제거하기
                     # URL,PATH 형식으로 List에 저장
                     # Tuple[str, str]를 UrlPath로 변환하여 추가
-                    result.append(UrlPathTuple(url, self.tag_remover(_path)))
+                    result.append(
+                        UrlPathTuple(url, self.__file_processor.remove_tag(_path))
+                    )
                 j += 1
 
             download_index += 1
@@ -484,7 +472,7 @@ class NWebtoon:
             return EpisodeUrlTuple()
 
         # title 에서 폴더 생성이 불가한 문자 제거
-        episode_title = self.filename_remover(episode_title)
+        episode_title = self.__file_processor.remove_forbidden_str(episode_title)
 
         # exist_ok라는 파라미터를 True로 하면 해당 디렉토리가 기존에 존재하면
         # 에러발생 없이 넘어가고, 없을 경우에만 생성합니다.
