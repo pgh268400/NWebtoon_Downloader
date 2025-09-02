@@ -1,4 +1,5 @@
 import asyncio
+from pprint import pprint
 import aiohttp
 import sys
 import os
@@ -28,7 +29,10 @@ class WebtoonAnalysis:
 
     total_count: int
     downloadable_count: int
-    episodes: List[EpisodeInfo]
+    page_size: int
+    total_pages: int
+    downloadable_episodes: List[EpisodeInfo]
+    full_episodes: List[EpisodeInfo]
 
 
 @dataclass
@@ -48,7 +52,7 @@ class WebtoonAnalyzer:
         self.__title_id = title_id
         self.__base_url = "https://comic.naver.com/api/article/list"
 
-    async def fetch_webtoon_metadata(self) -> WebtoonMetadata:
+    async def __fetch_webtoon_metadata(self) -> WebtoonMetadata:
         """
         웹툰 글 목록 첫 페이지 API 데이터를 활용해 메타데이터를 가져오는 함수 (첫 번째 페이지 요청)
 
@@ -100,15 +104,13 @@ class WebtoonAnalyzer:
                 else:
                     raise Exception(f"페이지 {page} 요청 실패: {response.status}")
 
-    async def get_all_episodes(self) -> List[EpisodeInfo]:
+    async def __get_all_episodes(self, metadata: WebtoonMetadata) -> List[EpisodeInfo]:
         """
         모든 에피소드 정보를 가져오는 함수
 
         Returns:
             모든 에피소드 정보 리스트
         """
-        # 먼저 웹툰 메타데이터를 가져옴 (전체 화수, 페이지 크기, 전체 페이지 수)
-        metadata: WebtoonMetadata = await self.fetch_webtoon_metadata()
 
         print(metadata)
         print(
@@ -142,7 +144,7 @@ class WebtoonAnalyzer:
 
         return all_episodes
 
-    def find_downloadable_episodes(
+    def __find_downloadable_episodes(
         self, episodes: List[EpisodeInfo]
     ) -> Tuple[int, List[EpisodeInfo]]:
         """
@@ -166,26 +168,30 @@ class WebtoonAnalyzer:
 
     async def analyze_webtoon(self) -> WebtoonAnalysis:
         """
-        웹툰을 분석하는 메인 함수
+        웹툰 정보를 분석하는 메인 함수
 
         Returns:
             웹툰 분석 결과
         """
         # 웹툰 메타데이터 가져오기
-        metadata = await self.fetch_webtoon_metadata()
+        metadata: WebtoonMetadata = await self.__fetch_webtoon_metadata()
 
         # 모든 에피소드 정보 가져오기
-        all_episodes = await self.get_all_episodes()
+        all_episodes = await self.__get_all_episodes(metadata)
 
         # 다운로드 가능한 에피소드 찾기
-        downloadable_count, downloadable_episodes = self.find_downloadable_episodes(
+        downloadable_count, downloadable_episodes = self.__find_downloadable_episodes(
             all_episodes
         )
 
+        # 데이터 정리해서 내보내기
         return WebtoonAnalysis(
             total_count=metadata.total_count,
             downloadable_count=downloadable_count,
-            episodes=all_episodes,
+            page_size=metadata.page_size,
+            total_pages=metadata.total_pages,
+            downloadable_episodes=downloadable_episodes,
+            full_episodes=all_episodes,
         )
 
 
@@ -199,34 +205,39 @@ async def test_webtoon(title_id: int, webtoon_name: str):
     analyzer = WebtoonAnalyzer(title_id)
 
     try:
-        # 메타데이터만 먼저 테스트
-        print("1. 메타데이터 가져오기 테스트...")
-        metadata = await analyzer.fetch_webtoon_metadata()
-        print(f"   전체 화수: {metadata.total_count}")
-        print(f"   페이지당 화수: {metadata.page_size}")
-        print(f"   전체 페이지 수: {metadata.total_pages}")
-
         # 전체 분석 테스트
-        print("\n2. 전체 웹툰 분석 테스트...")
+        print("전체 웹툰 분석 테스트...")
         result = await analyzer.analyze_webtoon()
 
         print(f"   전체 화수: {result.total_count}")
         print(f"   다운로드 가능한 화수: {result.downloadable_count}")
-        print(f"   전체 에피소드 수: {len(result.episodes)}")
+        print(f"   전체 에피소드 수: {len(result.full_episodes)}")
+        print(f"   다운로드 가능한 에피소드 수: {len(result.downloadable_episodes)}")
 
-        # 처음 5개와 마지막 5개 에피소드 출력
-        print("\n처음 5개 에피소드:")
-        for episode in result.episodes[:5]:
+        # 전체 에피소드 출력
+        print("\n전체 에피소드 (처음 5개):")
+        for episode in result.full_episodes[:5]:
             lock_status = "🔒" if episode.thumbnail_lock else "🔓"
             print(f"  {episode.no}화: {episode.subtitle} {lock_status}")
 
-        print("\n마지막 5개 에피소드:")
-        for episode in result.episodes[-5:]:
+        print("\n전체 에피소드 (마지막 5개):")
+        for episode in result.full_episodes[-5:]:
             lock_status = "🔒" if episode.thumbnail_lock else "🔓"
             print(f"  {episode.no}화: {episode.subtitle} {lock_status}")
 
-        # 잠금 에피소드들 출력
-        locked_episodes = [ep for ep in result.episodes if ep.thumbnail_lock]
+        # 다운로드 가능한 에피소드 출력
+        print("\n다운로드 가능한 에피소드 (처음 5개):")
+        for episode in result.downloadable_episodes[:5]:
+            lock_status = "🔒" if episode.thumbnail_lock else "🔓"
+            print(f"  {episode.no}화: {episode.subtitle} {lock_status}")
+
+        print("\n다운로드 가능한 에피소드 (마지막 5개):")
+        for episode in result.downloadable_episodes[-5:]:
+            lock_status = "🔒" if episode.thumbnail_lock else "🔓"
+            print(f"  {episode.no}화: {episode.subtitle} {lock_status}")
+
+        # 전체 에피소드에서 잠금 에피소드들 출력
+        locked_episodes = [ep for ep in result.full_episodes if ep.thumbnail_lock]
         if locked_episodes:
             print(f"\n잠금 에피소드 목록 ({len(locked_episodes)}개):")
             for episode in locked_episodes:
@@ -238,7 +249,7 @@ async def test_webtoon(title_id: int, webtoon_name: str):
         print(f"  다운로드 가능: {result.downloadable_count}화")
         print(f"  잠금 상태: {len(locked_episodes)}화")
         print(
-            f"  다운로드 가능 비율: {result.downloadable_count/len(result.episodes)*100:.1f}%"
+            f"  다운로드 가능 비율: {result.downloadable_count/len(result.full_episodes)*100:.1f}%"
         )
 
     except Exception as e:
