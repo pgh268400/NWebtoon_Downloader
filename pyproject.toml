@@ -7,9 +7,11 @@ requires-python = ">=3.13"
 dependencies = [
     "aiohttp>=3.12.15",
     "auto-py-to-exe>=2.47.0",
+    "beautifulsoup4>=4.13.5",
     "bs4>=0.0.2",
     "chardet>=5.2.0",
     "jinja2>=3.1.6",
+    "lxml>=6.0.1",
     "natsort>=8.4.0",
     "opencv-python>=4.12.0.88",
     "pydantic>=2.11.7",
