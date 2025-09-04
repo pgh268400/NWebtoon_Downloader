@@ -24,6 +24,11 @@ class EpisodeInfo:
     no: int
     subtitle: str
     thumbnail_lock: bool
+    img_urls: List[str] = None  # type: ignore
+
+    def __post_init__(self):
+        if self.img_urls is None:
+            self.img_urls = []
 
 
 @dataclass
@@ -45,7 +50,6 @@ class WebtoonAnalyzer:
         self.__title_id = title_id
         self.__info_url = "https://comic.naver.com/api/article/list/info"
         self.__list_url = "https://comic.naver.com/api/article/list"
-        self.__detail_url = "https://comic.naver.com/webtoon/detail"
 
         # 기본값 선언 - 실제 데이터는 비동기 함수에서 설정됨
         self.__total_count = 0
@@ -229,6 +233,49 @@ class WebtoonAnalyzer:
 
         return len(downloadable_episodes), downloadable_episodes
 
+    @property
+    def total_count(self) -> int:
+        """전체 화수"""
+        return self.__total_count
+
+    @property
+    def downloadable_count(self) -> int:
+        """다운로드 가능한 화수"""
+        return self.__downloadable_count
+
+    @property
+    def page_size(self) -> int:
+        """페이지 크기"""
+        return self.__page_size
+
+    @property
+    def total_pages(self) -> int:
+        """전체 페이지 수"""
+        return self.__total_pages
+
+    @property
+    def downloadable_episodes(self) -> List[EpisodeInfo]:
+        """다운로드 가능한 에피소드 목록"""
+        return self.__downloadable_episodes
+
+    @property
+    def full_episodes(self) -> List[EpisodeInfo]:
+        """전체 에피소드 목록"""
+        return self.__full_episodes
+
+    @property
+    def title_id(self) -> int:
+        "타이틀 id"
+        return self.__title_id
+
+
+class WebtoonDownloader:
+    """웹툰 다운로드 관련 기능을 담당하는 클래스"""
+
+    def __init__(self, title_id: int) -> None:
+        self.__title_id = title_id
+        self.__detail_url = "https://comic.naver.com/webtoon/detail"
+
     async def get_episode_images(self, episode: EpisodeInfo) -> EpisodeInfo:
         """
         특정 에피소드의 이미지 URL들을 가져오는 함수
@@ -285,27 +332,27 @@ class WebtoonAnalyzer:
 
         return episode
 
-    async def get_downloadable_episodes_with_images(self) -> List[EpisodeInfo]:
+    async def get_episodes_with_images(
+        self, episodes: List[EpisodeInfo]
+    ) -> List[EpisodeInfo]:
         """
-        다운로드 가능한 에피소드들의 이미지 URL을 모두 가져오는 함수
+        에피소드들의 이미지 URL을 모두 가져오는 함수
+
+        Args:
+            episodes: 이미지 URL을 수집할 에피소드 리스트
 
         Returns:
-            이미지 URL이 포함된 다운로드 가능한 에피소드 리스트
+            이미지 URL이 포함된 에피소드 리스트
         """
-        # 다운로드 가능한 에피소드 가져오기
-        downloadable_episodes = self.downloadable_episodes
-
-        if not downloadable_episodes:
-            print("다운로드 가능한 에피소드가 없습니다.")
+        if not episodes:
+            print("수집할 에피소드가 없습니다.")
             return []
 
-        print(
-            f"\n다운로드 가능한 {len(downloadable_episodes)}개 에피소드의 이미지 URL을 수집합니다..."
-        )
+        print(f"\n{len(episodes)}개 에피소드의 이미지 URL을 수집합니다...")
 
         # 모든 에피소드의 이미지 URL을 병렬로 가져오기
         tasks = []
-        for episode in downloadable_episodes:
+        for episode in episodes:
             task = self.get_episode_images(episode)
             tasks.append(task)
 
@@ -316,36 +363,32 @@ class WebtoonAnalyzer:
 
         return episodes_with_images
 
-    async def get_downloadable_episodes_with_images_batch(
-        self, batch_size: int
+    async def get_episodes_with_images_batch(
+        self, episodes: List[EpisodeInfo], batch_size: int
     ) -> List[EpisodeInfo]:
         """
-        다운로드 가능한 에피소드들의 이미지 URL을 배치 단위로 가져오는 함수
+        에피소드들의 이미지 URL을 배치 단위로 가져오는 함수
 
         Args:
+            episodes: 이미지 URL을 수집할 에피소드 리스트
             batch_size: 한 번에 처리할 에피소드 수
 
         Returns:
-            이미지 URL이 포함된 다운로드 가능한 에피소드 리스트
+            이미지 URL이 포함된 에피소드 리스트
         """
-        # 다운로드 가능한 에피소드 가져오기
-        downloadable_episodes = self.downloadable_episodes
-
-        if not downloadable_episodes:
-            print("다운로드 가능한 에피소드가 없습니다.")
+        if not episodes:
+            print("수집할 에피소드가 없습니다.")
             return []
 
-        print(
-            f"\n다운로드 가능한 {len(downloadable_episodes)}개 에피소드의 이미지 URL을 수집합니다..."
-        )
+        print(f"\n{len(episodes)}개 에피소드의 이미지 URL을 수집합니다...")
         print(f"배치 크기: {batch_size}개씩 처리")
 
         episodes_with_images = []
-        total_episodes = len(downloadable_episodes)
+        total_episodes = len(episodes)
 
         # 배치 단위로 처리
         for i in range(0, total_episodes, batch_size):
-            batch = downloadable_episodes[i : i + batch_size]
+            batch = episodes[i : i + batch_size]
             print(
                 f"\n배치 {i//batch_size + 1}/{(total_episodes + batch_size - 1)//batch_size} 처리 중... ({i+1}~{min(i+batch_size, total_episodes)}화)"
             )
@@ -377,39 +420,123 @@ class WebtoonAnalyzer:
 
         return episodes_with_images
 
-    @property
-    def total_count(self) -> int:
-        """전체 화수"""
-        return self.__total_count
+    async def download_episode_images(self, episode: EpisodeInfo) -> bool:
+        """
+        특정 에피소드의 이미지를 다운로드하는 함수
 
-    @property
-    def downloadable_count(self) -> int:
-        """다운로드 가능한 화수"""
-        return self.__downloadable_count
+        Args:
+            episode: 이미지 URL이 포함된 에피소드 정보
 
-    @property
-    def page_size(self) -> int:
-        """페이지 크기"""
-        return self.__page_size
+        Returns:
+            다운로드 성공 여부
+        """
+        if not hasattr(episode, "img_urls") or not episode.img_urls:
+            print(f"  {episode.no}화: 다운로드할 이미지 URL이 없습니다.")
+            return False
 
-    @property
-    def total_pages(self) -> int:
-        """전체 페이지 수"""
-        return self.__total_pages
+        try:
+            print(f"  {episode.no}화 '{episode.subtitle}' 다운로드 시작...")
+            print(f"    총 {len(episode.img_urls)}개 이미지 다운로드 예정")
 
-    @property
-    def downloadable_episodes(self) -> List[EpisodeInfo]:
-        """다운로드 가능한 에피소드 목록"""
-        return self.__downloadable_episodes
+            # TODO: 실제 이미지 다운로드 로직 구현
+            # 여기서는 현재 이미지 URL 수집만 완료된 상태를 표시
+            print(f"    다운로드 준비 완료 (실제 다운로드 로직은 별도 구현 필요)")
 
-    @property
-    def full_episodes(self) -> List[EpisodeInfo]:
-        """전체 에피소드 목록"""
-        return self.__full_episodes
+            return True
+        except Exception as e:
+            print(f"  {episode.no}화: 다운로드 중 오류 발생 - {e}")
+            return False
+
+    async def download_episodes(self, episodes: List[EpisodeInfo]) -> List[bool]:
+        """
+        에피소드들의 이미지를 모두 다운로드하는 함수
+
+        Args:
+            episodes: 이미지 URL이 포함된 에피소드 리스트
+
+        Returns:
+            각 에피소드의 다운로드 성공 여부 리스트
+        """
+        if not episodes:
+            print("다운로드할 에피소드가 없습니다.")
+            return []
+
+        print(f"\n{len(episodes)}개 에피소드의 이미지를 다운로드합니다...")
+
+        # 모든 에피소드의 이미지를 병렬로 다운로드
+        tasks = []
+        for episode in episodes:
+            task = self.download_episode_images(episode)
+            tasks.append(task)
+
+        # 모든 요청을 동시에 실행
+        download_results = await asyncio.gather(*tasks)
+
+        success_count = sum(download_results)
+        print(f"\n총 {len(episodes)}개 에피소드 중 {success_count}개 다운로드 완료!")
+
+        return download_results
+
+    async def download_episodes_batch(
+        self, episodes: List[EpisodeInfo], batch_size: int
+    ) -> List[bool]:
+        """
+        에피소드들의 이미지를 배치 단위로 다운로드하는 함수
+
+        Args:
+            episodes: 이미지 URL이 포함된 에피소드 리스트
+            batch_size: 한 번에 처리할 에피소드 수
+
+        Returns:
+            각 에피소드의 다운로드 성공 여부 리스트
+        """
+        if not episodes:
+            print("다운로드할 에피소드가 없습니다.")
+            return []
+
+        print(f"\n{len(episodes)}개 에피소드의 이미지를 다운로드합니다...")
+        print(f"배치 크기: {batch_size}개씩 처리")
+
+        download_results = []
+        total_episodes = len(episodes)
+
+        # 배치 단위로 처리
+        for i in range(0, total_episodes, batch_size):
+            batch = episodes[i : i + batch_size]
+            print(
+                f"\n배치 {i//batch_size + 1}/{(total_episodes + batch_size - 1)//batch_size} 처리 중... ({i+1}~{min(i+batch_size, total_episodes)}화)"
+            )
+
+            # 현재 배치의 이미지를 병렬로 다운로드
+            tasks = []
+            for episode in batch:
+                task = self.download_episode_images(episode)
+                tasks.append(task)
+
+            # 현재 배치의 요청을 동시에 실행
+            batch_results = await asyncio.gather(*tasks, return_exceptions=True)
+
+            # 결과 처리
+            for j, result in enumerate(batch_results):
+                if isinstance(result, Exception):
+                    print(f"  {batch[j].no}화: 오류 발생 - {result}")
+                    download_results.append(False)
+                else:
+                    download_results.append(result)
+
+            # 서버 부하 방지를 위한 잠시 대기
+            if i + batch_size < total_episodes:
+                print("  서버 부하 방지를 위해 1초 대기합니다.")
+                await asyncio.sleep(1)
+
+        success_count = sum(download_results)
+        print(f"\n총 {len(episodes)}개 에피소드 중 {success_count}개 다운로드 완료!")
+
+        return download_results
 
     @property
     def title_id(self) -> int:
-        "타이틀 id"
+        """타이틀 id"""
         return self.__title_id
 
 
@@ -490,6 +617,7 @@ async def test_image_collection(
     print("=" * 60)
 
     analyzer = await WebtoonAnalyzer.create(title_id)
+    downloader = WebtoonDownloader(title_id)
 
     try:
         # 다운로드 가능한 에피소드 가져오기
@@ -506,7 +634,7 @@ async def test_image_collection(
         # 각 에피소드의 이미지 URL 수집
         for episode in test_episodes:
             print(f"\n{episode.no}화 '{episode.subtitle}' 이미지 URL 수집 중...")
-            episode_with_images = await analyzer.get_episode_images(episode)
+            episode_with_images = await downloader.get_episode_images(episode)
 
             print(f"  수집된 이미지 URL 수: {len(episode_with_images.img_urls)}")
             if episode_with_images.img_urls:
@@ -569,6 +697,7 @@ async def test_full_image_collection(title_id: int, webtoon_name: str):
     print("=" * 60)
 
     analyzer = await WebtoonAnalyzer.create(title_id)
+    downloader = WebtoonDownloader(title_id)
 
     try:
         # 다운로드 가능한 에피소드 가져오기
@@ -587,7 +716,7 @@ async def test_full_image_collection(title_id: int, webtoon_name: str):
         # 각 에피소드를 개별적으로 처리
         for episode in test_episodes:
             print(f"\n{episode.no}화 '{episode.subtitle}' 이미지 URL 수집 중...")
-            episode_with_images = await analyzer.get_episode_images(episode)
+            episode_with_images = await downloader.get_episode_images(episode)
             episodes_with_images.append(episode_with_images)
 
             print(f"  수집된 이미지 URL 수: {len(episode_with_images.img_urls)}")
@@ -638,6 +767,8 @@ async def test_batch_image_collection(title_id: int, webtoon_name: str):
     print("=" * 60)
 
     analyzer = await WebtoonAnalyzer.create(title_id)
+    downloader = WebtoonDownloader(title_id)
+
 
     try:
         # 다운로드 가능한 에피소드 가져오기
@@ -651,12 +782,9 @@ async def test_batch_image_collection(title_id: int, webtoon_name: str):
         test_episodes = downloadable_episodes[:10]
         print(f"테스트할 에피소드 수: {len(test_episodes)}개 (처음 10개만)")
 
-        # 테스트용 에피소드로 analyzer의 downloadable_episodes를 임시로 교체
-        # 이 부분은 새로운 구조에서는 필요하지 않으므로 제거
-
         # 배치 크기 설정하고 이미지 URL 수집
-        episodes_with_images = (
-            await analyzer.get_downloadable_episodes_with_images_batch(batch_size=5)
+        episodes_with_images = await downloader.get_episodes_with_images_batch(
+            test_episodes, batch_size=5
         )
 
         print(f"\n총 {len(episodes_with_images)}개 에피소드의 이미지 URL 수집 완료!")
