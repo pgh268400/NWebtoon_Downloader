@@ -14,6 +14,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # 기존 pydantic 타입 정의 import
 from module.headers import headers
 from type.api.article_list import NWebtoonArticleListData
+from type.api.comic_info import NWebtoonMainData
 
 
 @dataclass
@@ -23,11 +24,6 @@ class EpisodeInfo:
     no: int
     subtitle: str
     thumbnail_lock: bool
-    img_urls: List[str] = None  # type: ignore
-
-    def __post_init__(self):
-        if self.img_urls is None:
-            self.img_urls = []
 
 
 @dataclass
@@ -35,6 +31,8 @@ class WebtoonMetadata:
     """웹툰 메타데이터를 담는 데이터 클래스"""
 
     title_id: int
+    title_name: str
+    is_adult: bool
     total_count: int
     page_size: int
     total_pages: int
@@ -45,7 +43,8 @@ class WebtoonAnalyzer:
 
     def __init__(self, title_id: int) -> None:
         self.__title_id = title_id
-        self.__base_url = "https://comic.naver.com/api/article/list"
+        self.__info_url = "https://comic.naver.com/api/article/list/info"
+        self.__list_url = "https://comic.naver.com/api/article/list"
         self.__detail_url = "https://comic.naver.com/webtoon/detail"
 
         # 기본값 선언 - 실제 데이터는 비동기 함수에서 설정됨
@@ -96,15 +95,35 @@ class WebtoonAnalyzer:
 
     async def __fetch_webtoon_metadata(self) -> WebtoonMetadata:
         """
-        웹툰 글 목록 첫 페이지 API 데이터를 활용해 메타데이터를 가져오는 함수 (첫 번째 페이지 요청)
+        웹툰 API 데이터를 활용해 메타데이터를 가져오는 함수
 
         Returns:
             웹툰 메타데이터 (전체 화수, 페이지 크기, 전체 페이지 수)
         """
-        url = f"{self.__base_url}?titleId={self.__title_id}&page=1"
+
+        # 웹툰의 정보를 가져오기 위해 info api에 요청한다
+        info_url = f"{self.__info_url}?titleId={self.__title_id}"
+
+        # list api 첫 번째 페이지 요청을 활용해 전체 화수, 페이지 크기, 전체 페이지 수를 얻는다.
+        list_url = f"{self.__list_url}?titleId={self.__title_id}&page=1"
 
         async with aiohttp.ClientSession(headers=headers) as session:
-            async with session.get(url) as response:
+            # info API 요청
+            async with session.get(info_url) as info_response:
+                if info_response.status != 200:
+                    raise Exception(f"Info API 요청 실패: {info_response.status}")
+
+                info_data = await info_response.json()
+                comic_info = NWebtoonMainData.from_dict(info_data)
+
+                # 성인 웹툰 여부 확인 (age.type이 RATE_18이면 성인 웹툰)
+                is_adult = comic_info.age.type == "RATE_18"
+
+                # 제목 가져오기
+                title_name = comic_info.titleName
+
+            # list API 요청
+            async with session.get(list_url) as response:
                 # HTTP 요청에 성공한 경우
                 if response.status == 200:
                     data = await response.json()
@@ -118,12 +137,14 @@ class WebtoonAnalyzer:
 
                     return WebtoonMetadata(
                         title_id=self.__title_id,
+                        title_name=title_name,
+                        is_adult=is_adult,
                         total_count=total_count,
                         page_size=page_size,
                         total_pages=total_pages,
                     )
                 else:
-                    raise Exception(f"API 요청 실패: {response.status}")
+                    raise Exception(f"List API 요청 실패: {response.status}")
 
     async def __get_episode_list_page(self, page: int) -> NWebtoonArticleListData:
         """
@@ -135,7 +156,7 @@ class WebtoonAnalyzer:
         Returns:
             해당 페이지의 pydantic 모델 데이터
         """
-        url = f"{self.__base_url}?titleId={self.__title_id}&page={page}"
+        url = f"{self.__list_url}?titleId={self.__title_id}&page={page}"
 
         async with aiohttp.ClientSession(headers=headers) as session:
             async with session.get(url) as response:

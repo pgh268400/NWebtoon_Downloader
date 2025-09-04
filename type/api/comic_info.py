@@ -77,6 +77,26 @@ class CurationTag(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
 
+class GfpAdCustomParam(BaseModel):
+    """광고 관련 커스텀 파라미터"""
+
+    titleId: int = 0
+    webtoonLevelCode: str = ""
+    titleName: str = ""
+    displayAuthor: str = ""
+    genreTypes: List[str] = Field(default_factory=list)
+    rankGenreTypes: List[str] = Field(default_factory=list)
+    tags: List[str] = Field(default_factory=list)
+    weekdays: List[str] = Field(default_factory=list)
+    finishedYn: str = "N"
+    adultYn: str = "N"
+    dailyPlusYn: str = "N"
+    dailyFreeYn: str = "N"
+
+    # 동적 필드 처리를 위한 설정
+    model_config = ConfigDict(extra="ignore")
+
+
 class NWebtoonMainData(BaseModel):
     titleId: int = 0
     thumbnailUrl: str = ""
@@ -100,6 +120,7 @@ class NWebtoonMainData(BaseModel):
     publishDayOfWeekList: List[str] = Field(default_factory=list)
     curationTagList: List[CurationTag] = Field(default_factory=list)
     adBannerList: List[dict] = Field(default_factory=list)
+    gfpAdCustomParam: GfpAdCustomParam = Field(default_factory=GfpAdCustomParam)
 
     # 동적 필드 처리를 위한 설정
     model_config = ConfigDict(
@@ -121,35 +142,6 @@ class NWebtoonMainData(BaseModel):
         # 정의되지 않은 필드들을 extra_fields에 저장
         if hasattr(self, "__pydantic_extra__"):
             self.extra_fields = self.__pydantic_extra__ or {}
-
-
-# 더 유연한 동적 모델 (완전히 동적인 필드 처리)
-class DynamicNWebtoonData(BaseModel):
-    """완전히 동적인 필드 처리를 위한 모델"""
-
-    model_config = ConfigDict(
-        extra="allow",  # 모든 추가 필드 허용
-        validate_assignment=True,
-        arbitrary_types_allowed=True,
-    )
-
-    # 기본 필드들 (선택적)
-    titleId: int = Field(default=0, description="웹툰 ID")
-    titleName: str = Field(default="", description="웹툰 제목")
-
-    def get_extra_field(self, field_name: str, default: Any = None) -> Any:
-        """동적 필드 값을 가져오는 메서드"""
-        return getattr(self, field_name, default)
-
-    def has_extra_field(self, field_name: str) -> bool:
-        """동적 필드가 존재하는지 확인하는 메서드"""
-        return hasattr(self, field_name)
-
-    def get_all_extra_fields(self) -> Dict[str, Any]:
-        """모든 동적 필드를 딕셔너리로 반환"""
-        if hasattr(self, "__pydantic_extra__"):
-            return self.__pydantic_extra__ or {}
-        return {}
 
 
 # 직접 실행했을때만 실행되는 코드 (import 되었을때는 실행되지 않음, 모듈 단위 테스트용)
