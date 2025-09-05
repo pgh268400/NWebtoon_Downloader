@@ -48,15 +48,17 @@ class WebtoonAnalyzer:
         nid_ses: Optional[str] = None,
     ) -> None:
         self.__title_id = title_id
+
+        # API 요청에 사용할 URL
         self.__info_url = "https://comic.naver.com/api/article/list/info"
         self.__list_url = "https://comic.naver.com/api/article/list"
 
-        # 성인 웹툰용 쿠키 설정
+        # 성인 웹툰 접근용 쿠키 설정
         self.__cookies = {}
         if nid_aut and nid_ses:
             self.__cookies = {"NID_AUT": nid_aut, "NID_SES": nid_ses}
 
-        # 기본값 선언 - 실제 데이터는 비동기 함수에서 설정됨
+        # 멤버 변수 선언 - 실제 데이터는 비동기 함수에서 설정
         self.__title_name = ""
         self.__total_count = 0
         self.__downloadable_count = 0
@@ -81,15 +83,17 @@ class WebtoonAnalyzer:
     ) -> "WebtoonAnalyzer":
         """비동기 팩토리 메서드로 WebtoonAnalyzer 인스턴스를 생성하고 초기화"""
         instance = cls(title_id, nid_aut, nid_ses)  # 여기서 일반생성자 __init__ 실행
-        await instance.__init_analysis()
+        await instance.__initialize()  # 비동기 함수 실행
         return instance
 
-    async def __init_analysis(self) -> None:
-        """분석 결과를 초기화하는 내부 메서드"""
+    async def __initialize(self) -> None:
+        """웹툰 메타데이터를 가져와 멤버 변수 초기화하는 내부 비동기 함수(메서드)"""
+
         # 웹툰 메타데이터 가져오기
         metadata: WebtoonMetadata = await self.__fetch_webtoon_metadata()
 
         # 성인 웹툰이 아닐 때만 에피소드 정보 가져오기
+        # 참고 : 성인 웹툰인 경우엔 아래 함수를 통해 에피소드 정보를 가져올 수 없음
         if not metadata.is_adult:
             # 모든 에피소드 정보 가져오기
             all_episodes = await self.__get_all_episodes(metadata)
@@ -98,8 +102,8 @@ class WebtoonAnalyzer:
             downloadable_count, downloadable_episodes = (
                 self.__find_downloadable_episodes(all_episodes)
             )
+        # 성인 웹툰인 경우 빈 값으로 설정
         else:
-            # 성인 웹툰인 경우 빈 값으로 설정
             all_episodes = []
             downloadable_count = 0
             downloadable_episodes = []

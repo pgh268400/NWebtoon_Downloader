@@ -20,12 +20,17 @@ class Setting:
             self.__settings_path: str = file_name
             self.__encoding: str = encoding
 
-            # 현재 실행 경로에 설정 파일이 없으면 생성한다.
+            # 현재 실행 경로에 설정 파일이 없으면 기본값으로 생성한다.
             if not os.path.isfile(self.__settings_path):
                 config = configparser.ConfigParser()
                 config["ZeroFill"] = {}  # 섹션을 생성한다
-                config["ZeroFill"]["Folder"] = "0"  # 섹션 아래 실제 값을 생성한다
-                config["ZeroFill"]["Image"] = "0"
+                config["ZeroFill"]["Folder"] = "4"  # 섹션 아래 실제 값을 생성한다
+                config["ZeroFill"]["Image"] = "4"
+
+                config["Download"] = {}  # 다운로드 관련 설정 섹션
+                config["Download"]["BatchSize"] = "5"  # 배치 크기
+                config["Download"]["MaxConcurrent"] = "10"  # 최대 동시 다운로드 수
+                config["Download"]["DelaySeconds"] = "1"  # 배치 간 대기 시간(초)
 
                 # DEFAULT 섹션은 기본적으로 생성되어 있어 생성없이 쓸 수 있다
                 config["DEFAULT"]["DownloadPath"] = "./Webtoon_Download"
@@ -46,6 +51,11 @@ class Setting:
             self.__image_zero_fill: int = int(config["ZeroFill"]["Image"])
             self.__download_path: str = config["DEFAULT"]["DownloadPath"]
             self.__error_path: str = config["DEFAULT"]["ErrorPath"]
+
+            # 다운로드 관련 설정값 읽기
+            self.__batch_size: int = int(config["Download"]["BatchSize"])
+            self.__max_concurrent: int = int(config["Download"]["MaxConcurrent"])
+            self.__delay_seconds: float = float(config["Download"]["DelaySeconds"])
 
         except Exception as e:
             print(e)
@@ -69,6 +79,18 @@ class Setting:
     @property
     def error_path(self) -> str:
         return self.__error_path
+
+    @property
+    def batch_size(self) -> int:
+        return self.__batch_size
+
+    @property
+    def max_concurrent(self) -> int:
+        return self.__max_concurrent
+
+    @property
+    def delay_seconds(self) -> float:
+        return self.__delay_seconds
 
 
 if __name__ == "__main__":

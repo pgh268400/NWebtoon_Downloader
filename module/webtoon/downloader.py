@@ -16,6 +16,8 @@ sys.path.append(
 
 from module.webtoon.analyzer import EpisodeInfo, WebtoonAnalyzer
 from module.headers import headers
+from module.settings import Setting
+from module.file_processor import FileProcessor
 
 
 @dataclass
@@ -33,12 +35,18 @@ class WebtoonDownloader:
         self,
         title_id: int,
         episodes: List[EpisodeInfo],
+        webtoon_title: str,
         nid_aut: Optional[str] = None,
         nid_ses: Optional[str] = None,
     ) -> None:
         self.__title_id = title_id
         self.__episodes = episodes
+        self.__webtoon_title = webtoon_title
         self.__detail_url = "https://comic.naver.com/webtoon/detail"
+
+        # 설정 및 파일 처리 객체 초기화
+        self.__settings = Setting()
+        self.__file_processor = FileProcessor()
 
         # 성인 웹툰용 쿠키 설정
         self.__cookies = {}
@@ -192,8 +200,9 @@ class WebtoonDownloader:
 
             # 서버 부하 방지를 위한 잠시 대기
             if i + batch_size < total_episodes:
-                print("  서버 부하 방지를 위해 1초 대기합니다.")
-                await asyncio.sleep(1)
+                delay = self.__settings.delay_seconds
+                print(f"  서버 부하 방지를 위해 {delay}초 대기합니다.")
+                await asyncio.sleep(delay)
 
         print(f"\n총 {len(episodes_with_images)}개 에피소드의 이미지 URL 수집 완료!")
 
@@ -232,7 +241,7 @@ class WebtoonDownloader:
             return False
 
     async def __download_all_images_concurrent(
-        self, episodes: List[EpisodeImageInfo], max_concurrent: int = 10
+        self, episodes: List[EpisodeImageInfo], max_concurrent: Optional[int] = None
     ) -> List[bool]:
         """
         모든 에피소드의 이미지를 동시성 제한을 걸어 한꺼번에 다운로드하는 함수
@@ -247,6 +256,10 @@ class WebtoonDownloader:
         if not episodes:
             print("다운로드할 에피소드가 없습니다.")
             return []
+
+        # 설정에서 최대 동시 다운로드 수 가져오기
+        if max_concurrent is None:
+            max_concurrent = self.__settings.max_concurrent
 
         # 전체 이미지 수 계산
         total_images = sum(len(episode.img_urls) for episode in episodes)
@@ -362,63 +375,9 @@ class WebtoonDownloader:
 
         return download_results
 
-    async def __download_episodes_batch(
-        self, episodes: List[EpisodeImageInfo], batch_size: int
-    ) -> List[bool]:
-        """
-        에피소드들의 이미지를 배치 단위로 다운로드하는 함수
-
-        Args:
-            episodes: 이미지 URL이 포함된 에피소드 리스트
-            batch_size: 한 번에 처리할 에피소드 수
-
-        Returns:
-            각 에피소드의 다운로드 성공 여부 리스트
-        """
-        if not episodes:
-            print("다운로드할 에피소드가 없습니다.")
-            return []
-
-        print(f"\n{len(episodes)}개 에피소드의 이미지를 다운로드합니다...")
-        print(f"배치 크기: {batch_size}개씩 처리")
-
-        download_results = []
-        total_episodes = len(episodes)
-
-        # 배치 단위로 처리
-        for i in range(0, total_episodes, batch_size):
-            batch = episodes[i : i + batch_size]
-            print(
-                f"\n배치 {i//batch_size + 1}/{(total_episodes + batch_size - 1)//batch_size} 처리 중... ({i+1}~{min(i+batch_size, total_episodes)}화)"
-            )
-
-            # 현재 배치의 이미지를 병렬로 다운로드
-            tasks = []
-            for episode in batch:
-                task = self.download_episode_images(episode)
-                tasks.append(task)
-
-            # 현재 배치의 요청을 동시에 실행
-            batch_results = await asyncio.gather(*tasks, return_exceptions=True)
-
-            # 결과 처리
-            for j, result in enumerate(batch_results):
-                if isinstance(result, Exception):
-                    print(f"  {batch[j].no}화: 오류 발생 - {result}")
-                    download_results.append(False)
-                else:
-                    download_results.append(result)
-
-            # 서버 부하 방지를 위한 잠시 대기
-            if i + batch_size < total_episodes:
-                print("  서버 부하 방지를 위해 1초 대기합니다.")
-
-        success_count = sum(download_results)
-        print(f"\n총 {len(episodes)}개 에피소드 중 {success_count}개 다운로드 완료!")
-
-        return download_results
-
-    async def download(self, start: int, end: int, batch_size: int) -> bool:
+    async def download(
+        self, start: int, end: int, batch_size: Optional[int] = None
+    ) -> bool:
         """
         웹툰 다운로드 함수
 
@@ -433,6 +392,10 @@ class WebtoonDownloader:
         if not self.__episodes:
             raise ValueError("다운로드할 에피소드가 없습니다.")
 
+        # 설정에서 배치 크기 가져오기
+        if batch_size is None:
+            batch_size = self.__settings.batch_size
+
         # 1-based index를 0-based index로 변환
         start_idx: int = start - 1
         end_idx: int = end - 1
@@ -440,7 +403,7 @@ class WebtoonDownloader:
         # 인덱스 범위 검증
         if start_idx < 0 or end_idx >= len(self.__episodes) or start_idx > end_idx:
             raise ValueError(
-                f"잘못된 화수 범위입니다. (1 ~ {len(self.__episodes)} 범위에서 선택해주세요.)"
+                f"잘못된 화수 범위입니다. (1화 ~ {len(self.__episodes)}화 범위에서 선택해주세요.)"
             )
 
         # 다운로드 할 에피소드 부분 추출
@@ -484,7 +447,7 @@ class WebtoonDownloader:
             # 모든 에피소드의 이미지를 한꺼번에 다운로드 (동시성 제한 적용)
             print("\n다운로드 시작...")
             download_results = await self.__download_all_images_concurrent(
-                episodes_with_images, max_concurrent=10
+                episodes_with_images
             )
 
             # 결과 요약
@@ -531,7 +494,7 @@ class WebtoonDownloader:
 
 
 # WebtoonDownloader 테스트 함수
-async def test_downloader(title_id: int, start: int, end: int, batch_size: int):
+async def test_downloader(title_id: int, start: int, end: int):
     """WebtoonDownloader의 download() 함수를 테스트"""
     try:
         # WebtoonAnalyzer로 에피소드 정보 가져오기
@@ -548,9 +511,11 @@ async def test_downloader(title_id: int, start: int, end: int, batch_size: int):
         downloadable_episodes = analyzer.downloadable_episodes
 
         # 다운로더로 다운로드 실행 (전체 에피소드 리스트와 함께 생성)
-        downloader = WebtoonDownloader(title_id, downloadable_episodes)
+        downloader = WebtoonDownloader(
+            title_id, downloadable_episodes, analyzer.title_name
+        )
 
-        success = await downloader.download(start, end, batch_size)
+        success = await downloader.download(start, end)
         print(f"테스트 결과: {'성공' if success else '실패'}")
 
     except Exception as e:
@@ -563,14 +528,14 @@ async def test_case():
 
     # 테스트할 title id들과 화수 범위
     test_cases = [
-        # (835801, 1, 2, 5),  # 달마건
-        (183559, 1, 5, 5),  # 신의 탑
-        # (602287, 1, 2, 5),  # 뷰티풀 군바리
+        # (835801, 1, 2),  # 달마건
+        (183559, 1, 653),  # 신의 탑
+        # (602287, 1, 2),  # 뷰티풀 군바리
     ]
 
-    for title_id, start, end, batch_size in test_cases:
+    for title_id, start, end in test_cases:
         print(f"\n=== 타이틀 ID: {title_id} ({start}화~{end}화) ===")
-        await test_downloader(title_id, start, end, batch_size)
+        await test_downloader(title_id, start, end)
 
 
 # 메인 실행부
