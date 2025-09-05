@@ -304,6 +304,16 @@ class WebtoonAnalyzer:
     def is_adult(self) -> bool:
         return self.__is_adult
 
+    @property
+    def nid_aut(self) -> Optional[str]:
+        """NID_AUT 쿠키 값"""
+        return self.__cookies.get("NID_AUT")
+
+    @property
+    def nid_ses(self) -> Optional[str]:
+        """NID_SES 쿠키 값"""
+        return self.__cookies.get("NID_SES")
+
 
 # WebtoonAnalyzer 테스트 함수
 async def test_analyzer(title_id: int):
@@ -329,6 +339,8 @@ async def test_analyzer(title_id: int):
         print(f"- 페이지 크기 (page_size): {analyzer.page_size}")
         print(f"- 전체 페이지 수 (total_pages): {analyzer.total_pages}")
         print(f"- 전체 에피소드 수 (full_episodes): {len(analyzer.full_episodes)}")
+
+        # 이 값은 downloadable_count 와 무조건 같아야 한다.
         print(
             f"- 다운로드 가능한 에피소드 수 (downloadable_episodes): {len(analyzer.downloadable_episodes)}"
         )
@@ -376,8 +388,8 @@ async def analyzer_test():
     """WebtoonAnalyzer 테스트 - 지정된 title ID들로 테스트"""
     print("WebtoonAnalyzer 테스트 시작")
 
-    # 테스트할 title ID들
-    title_ids: list[str] = [835801, 839004, 674209, 183559, 602287]
+    # 테스트할 title ID들 - 일반 웹툰, 성인 웹툰 X
+    title_ids: list[str] = [835801, 183559, 602287, 842399]
 
     for title_id in title_ids:
         await test_analyzer(title_id)
