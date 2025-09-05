@@ -1,5 +1,4 @@
 import asyncio
-from pprint import pprint
 import aiohttp
 import sys
 import os
@@ -440,7 +439,7 @@ class WebtoonDownloader:
 
             # TODO: 실제 이미지 다운로드 로직 구현
             # 여기서는 현재 이미지 URL 수집만 완료된 상태를 표시
-            print(f"    다운로드 준비 완료 (실제 다운로드 로직은 별도 구현 필요)")
+            print("    다운로드 준비 완료 (실제 다운로드 로직은 별도 구현 필요)")
 
             return True
         except Exception as e:
@@ -651,26 +650,57 @@ async def test_image_collection(
         traceback.print_exc()
 
 
-# 메인 테스트 함수
-async def main():
-    """웹툰 분석기 테스트 - 여러 웹툰으로 테스트"""
-    print("웹툰 분석기 테스트 시작")
-    print("pydantic 타입 정의를 활용한 버전 (API 응답 기반 pageSize 사용)")
+# WebtoonAnalyzer 속성 테스트 함수
+async def test_analyzer_properties(title_id: int):
+    """WebtoonAnalyzer의 모든 속성을 출력하는 간단한 테스트"""
+    print(f"\n{'='*50}")
+    print(f"Title ID: {title_id}")
+    print(f"{'='*50}")
 
-    # 테스트할 웹툰 목록
-    test_webtoons = [
-        (717481, "일렉시드"),
-        (842399, "슬램덩크(SLAM DUNK)"),
-        (183559, "신의 탑"),
-    ]
+    try:
+        analyzer = await WebtoonAnalyzer.create(title_id)
 
-    # 여러 테스트 케이스 실행
-    for title_id, webtoon_name in test_webtoons:
-        await test_webtoon(title_id, webtoon_name)
+        print(f"title_id: {analyzer.title_id}")
+        print(f"total_count: {analyzer.total_count}")
+        print(f"downloadable_count: {analyzer.downloadable_count}")
+        print(f"page_size: {analyzer.page_size}")
+        print(f"total_pages: {analyzer.total_pages}")
+        print(f"full_episodes 개수: {len(analyzer.full_episodes)}")
+        print(f"downloadable_episodes 개수: {len(analyzer.downloadable_episodes)}")
 
-    print("\n" + "=" * 60)
-    print("모든 테스트 완료!")
-    print("=" * 60)
+        # 처음 3개 에피소드 정보
+        print("\n처음 5개 에피소드:")
+        for episode in analyzer.full_episodes[:5]:
+            print(
+                f"  {episode.no}화: {episode.subtitle} (잠금: {episode.thumbnail_lock})"
+            )
+
+        # 마지막 3개 에피소드 정보
+        if len(analyzer.full_episodes) > 3:
+            print("\n마지막 5개 에피소드:")
+            for episode in analyzer.full_episodes[-5:]:
+                print(
+                    f"  {episode.no}화: {episode.subtitle} (잠금: {episode.thumbnail_lock})"
+                )
+
+    except Exception as e:
+        print(f"오류 발생: {e}")
+
+
+# WebtoonAnalyzer 속성 테스트 메인 함수
+async def main_analyzer_test():
+    """WebtoonAnalyzer 속성 테스트 - 지정된 title ID들로 테스트"""
+    print("WebtoonAnalyzer 속성 테스트 시작")
+
+    # 테스트할 title ID들
+    title_ids = [835801, 839004, 674209, 183559, 602287]
+
+    for title_id in title_ids:
+        await test_analyzer_properties(title_id)
+
+    print(f"\n{'='*50}")
+    print("WebtoonAnalyzer 속성 테스트 완료!")
+    print(f"{'='*50}")
 
 
 # 이미지 수집 메인 함수
@@ -769,7 +799,6 @@ async def test_batch_image_collection(title_id: int, webtoon_name: str):
     analyzer = await WebtoonAnalyzer.create(title_id)
     downloader = WebtoonDownloader(title_id)
 
-
     try:
         # 다운로드 가능한 에피소드 가져오기
         downloadable_episodes = analyzer.downloadable_episodes
@@ -807,7 +836,7 @@ async def test_batch_image_collection(title_id: int, webtoon_name: str):
 
 
 # 배치 처리 메인 함수
-async def main_batch_image_collection():
+async def main():
     """배치 처리 이미지 URL 수집 테스트"""
     print("배치 처리 이미지 URL 수집 테스트 시작")
 
@@ -823,14 +852,11 @@ async def main_batch_image_collection():
 
 
 if __name__ == "__main__":
-    # 기본 테스트 실행
-    # asyncio.run(main())
+    # WebtoonAnalyzer 전용 테스트 실행 (지정된 title ID들로)
+    asyncio.run(main_analyzer_test())
 
-    # 이미지 수집 테스트 실행
-    # asyncio.run(main_image_collection())
-
-    # 전체 이미지 수집 테스트 실행
-    # asyncio.run(main_full_image_collection())
-
-    # 배치 처리 이미지 수집 테스트 실행
-    asyncio.run(main_batch_image_collection())
+    # 다른 테스트들도 필요시 주석 해제하여 실행 가능
+    # asyncio.run(main())  # 배치 처리 이미지 수집 테스트
+    # asyncio.run(main2())  # 기존 웹툰 분석기 테스트
+    # asyncio.run(main_image_collection())  # 이미지 URL 수집 테스트
+    # asyncio.run(main_full_image_collection())  # 전체 이미지 URL 수집 테스트
