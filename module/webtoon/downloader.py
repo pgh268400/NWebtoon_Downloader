@@ -1,11 +1,13 @@
 import asyncio
 import aiohttp
+import aiofiles
 import sys
 import os
 import time
 from dataclasses import dataclass, field
 from typing import List, Optional
 from bs4 import BeautifulSoup
+from pathlib import Path
 
 # 프로젝트 루트 디렉토리를 Python 경로에 추가
 sys.path.append(
@@ -26,6 +28,7 @@ class EpisodeImageInfo(EpisodeInfo):
 class WebtoonDownloader:
     """웹툰 다운로드 관련 기능을 담당하는 클래스"""
 
+    # 생성자 처리
     def __init__(
         self,
         title_id: int,
@@ -196,32 +199,127 @@ class WebtoonDownloader:
 
         return episodes_with_images
 
-    async def download_episode_images(self, episode: EpisodeImageInfo) -> bool:
+    async def __download_single_image(
+        self, session: aiohttp.ClientSession, img_url: str, file_path: Path
+    ) -> bool:
         """
-        특정 에피소드의 이미지를 다운로드하는 함수
+        단일 이미지를 다운로드하는 함수
 
         Args:
-            episode: 이미지 URL이 포함된 에피소드 정보
+            session: aiohttp 세션
+            img_url: 이미지 URL
+            file_path: 저장할 파일 경로
 
         Returns:
             다운로드 성공 여부
         """
-        if not hasattr(episode, "img_urls") or not episode.img_urls:
-            print(f"  {episode.no}화: 다운로드할 이미지 URL이 없습니다.")
+        try:
+            async with session.get(img_url, headers=headers) as response:
+                if response.status == 200:
+                    # 디렉토리가 없으면 생성
+                    file_path.parent.mkdir(parents=True, exist_ok=True)
+
+                    async with aiofiles.open(file_path, "wb") as f:
+                        async for chunk in response.content.iter_chunked(8192):
+                            await f.write(chunk)
+                    return True
+                else:
+                    print(
+                        f"    이미지 다운로드 실패: {img_url} (HTTP {response.status})"
+                    )
+                    return False
+        except Exception as e:
+            print(f"    이미지 다운로드 오류: {img_url} - {e}")
             return False
+
+    async def __download_all_images_concurrent(
+        self, episodes: List[EpisodeImageInfo], max_concurrent: int = 10
+    ) -> List[bool]:
+        """
+        모든 에피소드의 이미지를 동시성 제한을 걸어 한꺼번에 다운로드하는 함수
+
+        Args:
+            episodes: 이미지 URL이 포함된 에피소드 리스트
+            max_concurrent: 최대 동시 다운로드 수 (기본값: 10)
+
+        Returns:
+            각 에피소드의 다운로드 성공 여부 리스트
+        """
+        if not episodes:
+            print("다운로드할 에피소드가 없습니다.")
+            return []
+
+        # 전체 이미지 수 계산
+        total_images = sum(len(episode.img_urls) for episode in episodes)
+        print(f"총 {len(episodes)}개 에피소드, {total_images}개 이미지를 동시 다운로드합니다...")
+        print(f"최대 동시 다운로드: {max_concurrent}개")
+
+        # 세마포어로 전체 이미지 다운로드 동시성 제한
+        semaphore = asyncio.Semaphore(max_concurrent)
+        
+        async def download_single_episode_image(session, episode, img_url, img_idx):
+            """단일 에피소드의 단일 이미지 다운로드"""
+            async with semaphore:
+                # 다운로드 폴더 생성
+                download_dir = Path("Webtoon_Download") / f"[{episode.no}] {episode.subtitle}"
+                
+                # 파일 확장자 추출 (기본값: .jpg)
+                ext = ".jpg"
+                if "." in img_url.split("/")[-1]:
+                    ext = "." + img_url.split(".")[-1].split("?")[0]
+                
+                file_path = download_dir / f"{img_idx+1:03d}{ext}"
+                return await self.__download_single_image(session, img_url, file_path)
 
         try:
-            print(f"  {episode.no}화 '{episode.subtitle}' 다운로드 시작...")
-            print(f"    총 {len(episode.img_urls)}개 이미지 다운로드 예정")
+            async with aiohttp.ClientSession(cookies=self.__cookies) as session:
+                # 모든 에피소드의 모든 이미지를 하나의 태스크 리스트로 생성
+                all_tasks = []
+                episode_task_counts = []  # 각 에피소드별 태스크 수 기록
+                
+                for episode in episodes:
+                    if not hasattr(episode, "img_urls") or not episode.img_urls:
+                        print(f"  {episode.no}화: 다운로드할 이미지 URL이 없습니다.")
+                        episode_task_counts.append(0)
+                        continue
+                    
+                    episode_task_counts.append(len(episode.img_urls))
+                    
+                    # 해당 에피소드의 모든 이미지 태스크 생성
+                    for img_idx, img_url in enumerate(episode.img_urls):
+                        task = download_single_episode_image(session, episode, img_url, img_idx)
+                        all_tasks.append(task)
+                
+                # 모든 이미지를 동시에 다운로드 (세마포어로 동시성 제한)
+                print(f"\n전체 {len(all_tasks)}개 이미지 다운로드 시작...")
+                all_results = await asyncio.gather(*all_tasks, return_exceptions=True)
+                
+                # 에피소드별 결과 집계
+                episode_results = []
+                result_idx = 0
+                
+                for i, episode in enumerate(episodes):
+                    task_count = episode_task_counts[i]
+                    if task_count == 0:
+                        episode_results.append(False)
+                        continue
+                    
+                    # 해당 에피소드의 결과들 추출
+                    episode_task_results = all_results[result_idx:result_idx + task_count]
+                    result_idx += task_count
+                    
+                    # 성공 개수 계산
+                    success_count = sum(1 for result in episode_task_results if result is True)
+                    episode_success = success_count == task_count
+                    episode_results.append(episode_success)
+                    
+                    print(f"  {episode.no}화: {success_count}/{task_count}개 성공")
+                
+                return episode_results
 
-            # TODO: 실제 이미지 다운로드 로직 구현
-            # 여기서는 현재 이미지 URL 수집만 완료된 상태를 표시
-            print("    다운로드 준비 완료 (실제 다운로드 로직은 별도 구현 필요)")
-
-            return True
         except Exception as e:
-            print(f"  {episode.no}화: 다운로드 중 오류 발생 - {e}")
-            return False
+            print(f"이미지 다운로드 중 오류 발생: {e}")
+            return [False] * len(episodes)
 
     async def download_episodes(self, episodes: List[EpisodeImageInfo]) -> List[bool]:
         """
@@ -359,7 +457,7 @@ class WebtoonDownloader:
                 episode_image_infos.append(episode_image_info)
 
             # 배치 단위로 이미지 URL 수집
-            print("\n이미지 URL 수집 시작...")
+            print("이미지 URL 수집 시작")
             episodes_with_images = await self.get_episodes_with_images_batch(
                 episode_image_infos, batch_size
             )
@@ -370,10 +468,10 @@ class WebtoonDownloader:
             )
             print(f"총 수집된 이미지 수: {total_images}개")
 
-            # 배치 단위로 다운로드 실행
+            # 모든 에피소드의 이미지를 한꺼번에 다운로드 (동시성 제한 적용)
             print("\n다운로드 시작...")
-            download_results = await self.__download_episodes_batch(
-                episodes_with_images, batch_size
+            download_results = await self.__download_all_images_concurrent(
+                episodes_with_images, max_concurrent=10
             )
 
             # 결과 요약
@@ -405,7 +503,7 @@ class WebtoonDownloader:
 
     @property
     def episodes(self) -> List[EpisodeInfo]:
-        """에피소드 리스트"""
+        """다운로드 할 에피소드 리스트"""
         return self.__episodes
 
     @property
