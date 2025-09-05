@@ -214,6 +214,7 @@ class WebtoonDownloader:
             다운로드 성공 여부
         """
         try:
+            print(img_url)
             async with session.get(img_url, headers=headers) as response:
                 if response.status == 200:
                     # 디렉토리가 없으면 생성
@@ -224,12 +225,10 @@ class WebtoonDownloader:
                             await f.write(chunk)
                     return True
                 else:
-                    print(
-                        f"    이미지 다운로드 실패: {img_url} (HTTP {response.status})"
-                    )
+                    print(f"실패: {img_url} (HTTP {response.status})")
                     return False
         except Exception as e:
-            print(f"    이미지 다운로드 오류: {img_url} - {e}")
+            print(f"오류: {img_url} - {e}")
             return False
 
     async def __download_all_images_concurrent(
@@ -251,23 +250,27 @@ class WebtoonDownloader:
 
         # 전체 이미지 수 계산
         total_images = sum(len(episode.img_urls) for episode in episodes)
-        print(f"총 {len(episodes)}개 에피소드, {total_images}개 이미지를 동시 다운로드합니다...")
+        print(
+            f"총 {len(episodes)}개 에피소드, {total_images}개 이미지를 동시 다운로드합니다..."
+        )
         print(f"최대 동시 다운로드: {max_concurrent}개")
 
         # 세마포어로 전체 이미지 다운로드 동시성 제한
         semaphore = asyncio.Semaphore(max_concurrent)
-        
+
         async def download_single_episode_image(session, episode, img_url, img_idx):
             """단일 에피소드의 단일 이미지 다운로드"""
             async with semaphore:
                 # 다운로드 폴더 생성
-                download_dir = Path("Webtoon_Download") / f"[{episode.no}] {episode.subtitle}"
-                
+                download_dir = (
+                    Path("Webtoon_Download") / f"[{episode.no}] {episode.subtitle}"
+                )
+
                 # 파일 확장자 추출 (기본값: .jpg)
                 ext = ".jpg"
                 if "." in img_url.split("/")[-1]:
                     ext = "." + img_url.split(".")[-1].split("?")[0]
-                
+
                 file_path = download_dir / f"{img_idx+1:03d}{ext}"
                 return await self.__download_single_image(session, img_url, file_path)
 
@@ -276,45 +279,53 @@ class WebtoonDownloader:
                 # 모든 에피소드의 모든 이미지를 하나의 태스크 리스트로 생성
                 all_tasks = []
                 episode_task_counts = []  # 각 에피소드별 태스크 수 기록
-                
+
                 for episode in episodes:
                     if not hasattr(episode, "img_urls") or not episode.img_urls:
                         print(f"  {episode.no}화: 다운로드할 이미지 URL이 없습니다.")
                         episode_task_counts.append(0)
                         continue
-                    
+
                     episode_task_counts.append(len(episode.img_urls))
-                    
+
                     # 해당 에피소드의 모든 이미지 태스크 생성
                     for img_idx, img_url in enumerate(episode.img_urls):
-                        task = download_single_episode_image(session, episode, img_url, img_idx)
+                        task = download_single_episode_image(
+                            session, episode, img_url, img_idx
+                        )
                         all_tasks.append(task)
-                
+
                 # 모든 이미지를 동시에 다운로드 (세마포어로 동시성 제한)
                 print(f"\n전체 {len(all_tasks)}개 이미지 다운로드 시작...")
+                print("=" * 60)
                 all_results = await asyncio.gather(*all_tasks, return_exceptions=True)
-                
+                print("=" * 60)
+
                 # 에피소드별 결과 집계
                 episode_results = []
                 result_idx = 0
-                
+
                 for i, episode in enumerate(episodes):
                     task_count = episode_task_counts[i]
                     if task_count == 0:
                         episode_results.append(False)
                         continue
-                    
+
                     # 해당 에피소드의 결과들 추출
-                    episode_task_results = all_results[result_idx:result_idx + task_count]
+                    episode_task_results = all_results[
+                        result_idx : result_idx + task_count
+                    ]
                     result_idx += task_count
-                    
+
                     # 성공 개수 계산
-                    success_count = sum(1 for result in episode_task_results if result is True)
+                    success_count = sum(
+                        1 for result in episode_task_results if result is True
+                    )
                     episode_success = success_count == task_count
                     episode_results.append(episode_success)
-                    
+
                     print(f"  {episode.no}화: {success_count}/{task_count}개 성공")
-                
+
                 return episode_results
 
         except Exception as e:
@@ -420,20 +431,22 @@ class WebtoonDownloader:
             다운로드 성공 여부
         """
         if not self.__episodes:
-            print("다운로드할 에피소드가 없습니다.")
-            return False
+            raise ValueError("다운로드할 에피소드가 없습니다.")
 
         # 1-based index를 0-based index로 변환
-        start_idx = start - 1
-        end_idx = end - 1
+        start_idx: int = start - 1
+        end_idx: int = end - 1
 
         # 인덱스 범위 검증
         if start_idx < 0 or end_idx >= len(self.__episodes) or start_idx > end_idx:
-            print(f"잘못된 화수 범위입니다. (1 ~ {len(self.__episodes)} 범위에서 선택)")
-            return False
+            raise ValueError(
+                f"잘못된 화수 범위입니다. (1 ~ {len(self.__episodes)} 범위에서 선택해주세요.)"
+            )
 
-        # 선택된 에피소드 추출
-        selected_episodes = self.__episodes[start_idx : end_idx + 1]
+        # 다운로드 할 에피소드 부분 추출
+        selected_episodes: List[EpisodeImageInfo] = self.__episodes[
+            start_idx : end_idx + 1
+        ]
 
         print(f"\n{'='*60}")
         print(
@@ -447,7 +460,7 @@ class WebtoonDownloader:
 
         try:
             # EpisodeInfo를 EpisodeImageInfo로 변환
-            episode_image_infos = []
+            episode_image_infos: List[EpisodeImageInfo] = []
             for episode in selected_episodes:
                 episode_image_info = EpisodeImageInfo(
                     no=episode.no,
