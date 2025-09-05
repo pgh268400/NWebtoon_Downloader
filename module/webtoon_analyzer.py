@@ -3,7 +3,7 @@ import aiohttp
 import sys
 import os
 import time
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 from dataclasses import dataclass
 from bs4 import BeautifulSoup
 
@@ -37,9 +37,10 @@ class WebtoonMetadata:
     title_id: int
     title_name: str
     is_adult: bool
-    total_count: int
-    page_size: int
-    total_pages: int
+    # list API에서 가져오는 값들 (성인 웹툰일 때는 None)
+    total_count: Optional[int] = None
+    page_size: Optional[int] = None
+    total_pages: Optional[int] = None
 
 
 class WebtoonAnalyzer:
@@ -55,6 +56,7 @@ class WebtoonAnalyzer:
         self.__downloadable_count = 0
         self.__page_size = 0
         self.__total_pages = 0
+        self.__is_adult = False
         self.__downloadable_episodes: List[EpisodeInfo] = []
         self.__full_episodes: List[EpisodeInfo] = []
 
@@ -88,10 +90,11 @@ class WebtoonAnalyzer:
         )
 
         # 데이터를 인스턴스 변수에 저장
-        self.__total_count = metadata.total_count
+        self.__total_count = metadata.total_count or 0
         self.__downloadable_count = downloadable_count
-        self.__page_size = metadata.page_size
-        self.__total_pages = metadata.total_pages
+        self.__page_size = metadata.page_size or 0
+        self.__total_pages = metadata.total_pages or 0
+        self.__is_adult = metadata.is_adult
         self.__downloadable_episodes = downloadable_episodes
         self.__full_episodes = all_episodes
         self.__title_id = metadata.title_id
@@ -126,28 +129,35 @@ class WebtoonAnalyzer:
                 title_name = comic_info.titleName
 
             # list API 요청
-            async with session.get(list_url) as response:
-                # HTTP 요청에 성공한 경우
-                if response.status == 200:
-                    data = await response.json()
-                    # pydantic 모델을 사용하여 데이터 검증
-                    article_list_data = NWebtoonArticleListData.from_dict(data)
+            # 성인 웹툰이 아닌 일반 웹툰인 경우
+            if not is_adult:
+                async with session.get(list_url) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        # pydantic 모델을 사용하여 데이터 검증
+                        article_list_data = NWebtoonArticleListData.from_dict(data)
 
-                    # API 응답에서 실제 값들을 가져옴
-                    total_count = article_list_data.totalCount
-                    page_size = article_list_data.pageInfo.pageSize
-                    total_pages = article_list_data.pageInfo.totalPages
+                        # API 응답에서 실제 값들을 가져옴
+                        total_count = article_list_data.totalCount
+                        page_size = article_list_data.pageInfo.pageSize
+                        total_pages = article_list_data.pageInfo.totalPages
+                    else:
+                        raise Exception(f"List API 요청 실패: {response.status}")
+            # 성인 웹툰인 경우 list 요청은 확정적으로 실패
+            else:
+                # 성인 웹툰인 경우 list API 요청을 시도하지 않고 None으로 설정
+                total_count = None
+                page_size = None
+                total_pages = None
 
-                    return WebtoonMetadata(
-                        title_id=self.__title_id,
-                        title_name=title_name,
-                        is_adult=is_adult,
-                        total_count=total_count,
-                        page_size=page_size,
-                        total_pages=total_pages,
-                    )
-                else:
-                    raise Exception(f"List API 요청 실패: {response.status}")
+            return WebtoonMetadata(
+                title_id=self.__title_id,
+                title_name=title_name,
+                is_adult=is_adult,
+                total_count=total_count,
+                page_size=page_size,
+                total_pages=total_pages,
+            )
 
     async def __get_episode_list_page(self, page: int) -> NWebtoonArticleListData:
         """
@@ -538,6 +548,11 @@ class WebtoonDownloader:
         """타이틀 id"""
         return self.__title_id
 
+    @property
+    def is_adult(self) -> bool:
+        """성인 웹툰 여부"""
+        return self.__is_adult
+
 
 # 통합 테스트 함수
 async def test_webtoon(title_id: int, webtoon_name: str):
@@ -549,6 +564,11 @@ async def test_webtoon(title_id: int, webtoon_name: str):
     analyzer = await WebtoonAnalyzer.create(title_id)
 
     try:
+        # 성인 웹툰인 경우 특별 처리
+        if analyzer.is_adult:
+            print("성인 웹툰입니다. NID_AUT과 NID_SES가 필요합니다.")
+            return
+
         # 전체 분석 테스트
         print("전체 웹툰 분석 테스트...")
 
@@ -619,6 +639,11 @@ async def test_image_collection(
     downloader = WebtoonDownloader(title_id)
 
     try:
+        # 성인 웹툰인 경우 특별 처리
+        if analyzer.is_adult:
+            print("성인 웹툰입니다. NID_AUT과 NID_SES가 필요합니다.")
+            return
+
         # 다운로드 가능한 에피소드 가져오기
         downloadable_episodes = analyzer.downloadable_episodes
 
@@ -659,6 +684,11 @@ async def test_analyzer_properties(title_id: int):
 
     try:
         analyzer = await WebtoonAnalyzer.create(title_id)
+
+        # 성인 웹툰인 경우 특별 처리
+        if analyzer.is_adult:
+            print("성인 웹툰입니다. NID_AUT과 NID_SES가 필요합니다.")
+            return
 
         print(f"title_id: {analyzer.title_id}")
         print(f"total_count: {analyzer.total_count}")
@@ -730,6 +760,11 @@ async def test_full_image_collection(title_id: int, webtoon_name: str):
     downloader = WebtoonDownloader(title_id)
 
     try:
+        # 성인 웹툰인 경우 특별 처리
+        if analyzer.is_adult:
+            print("성인 웹툰입니다. NID_AUT과 NID_SES가 필요합니다.")
+            return
+
         # 다운로드 가능한 에피소드 가져오기
         downloadable_episodes = analyzer.downloadable_episodes
 
