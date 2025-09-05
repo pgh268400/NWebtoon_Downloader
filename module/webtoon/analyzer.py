@@ -384,7 +384,7 @@ async def test_analyzer(title_id: int):
 
 
 # WebtoonAnalyzer 테스트 메인 함수
-async def analyzer_test():
+async def test_case():
     """WebtoonAnalyzer 테스트 - 지정된 title ID들로 테스트"""
     print("WebtoonAnalyzer 테스트 시작")
 
@@ -399,4 +399,4 @@ async def analyzer_test():
 
 if __name__ == "__main__":
     # WebtoonAnalyzer 객체 테스트
-    asyncio.run(analyzer_test())
+    asyncio.run(test_case())

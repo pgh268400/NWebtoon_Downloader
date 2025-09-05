@@ -29,10 +29,12 @@ class WebtoonDownloader:
     def __init__(
         self,
         title_id: int,
+        episodes: List[EpisodeInfo],
         nid_aut: Optional[str] = None,
         nid_ses: Optional[str] = None,
     ) -> None:
         self.__title_id = title_id
+        self.__episodes = episodes
         self.__detail_url = "https://comic.naver.com/webtoon/detail"
 
         # 성인 웹툰용 쿠키 설정
@@ -251,7 +253,7 @@ class WebtoonDownloader:
 
         return download_results
 
-    async def download_episodes_batch(
+    async def __download_episodes_batch(
         self, episodes: List[EpisodeImageInfo], batch_size: int
     ) -> List[bool]:
         """
@@ -307,32 +309,48 @@ class WebtoonDownloader:
 
         return download_results
 
-    async def download(self, episodes: List[EpisodeInfo], batch_size) -> bool:
+    async def download(self, start: int, end: int, batch_size: int) -> bool:
         """
         웹툰 다운로드 함수
 
         Args:
-            episodes: 다운로드할 에피소드 리스트
+            start: 시작 화수 (1부터 시작)
+            end: 끝 화수 (1부터 시작)
             batch_size: 한 번에 처리할 배치 크기
 
         Returns:
             다운로드 성공 여부
         """
-        if not episodes:
+        if not self.__episodes:
             print("다운로드할 에피소드가 없습니다.")
             return False
 
+        # 1-based index를 0-based index로 변환
+        start_idx = start - 1
+        end_idx = end - 1
+
+        # 인덱스 범위 검증
+        if start_idx < 0 or end_idx >= len(self.__episodes) or start_idx > end_idx:
+            print(f"잘못된 화수 범위입니다. (1 ~ {len(self.__episodes)} 범위에서 선택)")
+            return False
+
+        # 선택된 에피소드 추출
+        selected_episodes = self.__episodes[start_idx : end_idx + 1]
+
         print(f"\n{'='*60}")
         print(
-            f"웹툰 다운로드 시작 - {len(episodes)}개 에피소드 (배치 크기: {batch_size})"
+            f"웹툰 다운로드 시작 - {len(selected_episodes)}개 에피소드 (배치 크기: {batch_size})"
         )
-        print(f"대상 에피소드: {episodes[0].no}화 ~ {episodes[-1].no}화")
+        print(f"인덱스 범위: {start} ~ {end}")
+        print(
+            f"대상 에피소드: {selected_episodes[0].no}화 ~ {selected_episodes[-1].no}화"
+        )
         print(f"{'='*60}")
 
         try:
             # EpisodeInfo를 EpisodeImageInfo로 변환
             episode_image_infos = []
-            for episode in episodes:
+            for episode in selected_episodes:
                 episode_image_info = EpisodeImageInfo(
                     no=episode.no,
                     subtitle=episode.subtitle,
@@ -354,7 +372,7 @@ class WebtoonDownloader:
 
             # 배치 단위로 다운로드 실행
             print("\n다운로드 시작...")
-            download_results = await self.download_episodes_batch(
+            download_results = await self.__download_episodes_batch(
                 episodes_with_images, batch_size
             )
 
@@ -386,6 +404,11 @@ class WebtoonDownloader:
         return self.__title_id
 
     @property
+    def episodes(self) -> List[EpisodeInfo]:
+        """에피소드 리스트"""
+        return self.__episodes
+
+    @property
     def nid_aut(self) -> Optional[str]:
         """NID_AUT 쿠키 값"""
         return self.__cookies.get("NID_AUT")
@@ -410,31 +433,27 @@ async def test_downloader(title_id: int, start: int, end: int, batch_size: int):
             print("성인 웹툰은 테스트를 지원하지 않습니다.")
             return
 
-        # 지정된 범위의 에피소드 필터링
-        all_episodes = analyzer.downloadable_episodes
-        target_episodes = [ep for ep in all_episodes if start <= ep.no <= end]
+        # 다운로드 가능한 에피소드만 다운로드 (유료 회차 지원 X)
+        downloadable_episodes = analyzer.downloadable_episodes
 
-        if not target_episodes:
-            print(f"{start}화~{end}화 범위에 다운로드 가능한 에피소드가 없습니다.")
-            return
+        # 다운로더로 다운로드 실행 (전체 에피소드 리스트와 함께 생성)
+        downloader = WebtoonDownloader(title_id, downloadable_episodes)
 
-        # 다운로더로 다운로드 실행
-        downloader = WebtoonDownloader(title_id)
-        success = await downloader.download(target_episodes, batch_size)
+        success = await downloader.download(start, end, batch_size)
         print(f"테스트 결과: {'성공' if success else '실패'}")
 
     except Exception as e:
         print(f"테스트 중 오류 발생: {e}")
 
 
-async def test_multiple_downloaders():
+async def test_case():
     """WebtoonDownloader 테스트 - 지정된 title ID들로 테스트"""
     print("WebtoonDownloader 테스트 시작")
 
-    # 테스트할 title ID들과 화수 범위
+    # 테스트할 title id들과 화수 범위
     test_cases = [
         # (835801, 1, 2, 5),  # 달마건
-        (183559, 1, 653, 5),  # 신의 탑
+        (183559, 1, 5, 5),  # 신의 탑
         # (602287, 1, 2, 5),  # 뷰티풀 군바리
     ]
 
@@ -445,4 +464,4 @@ async def test_multiple_downloaders():
 
 # 메인 실행부
 if __name__ == "__main__":
-    asyncio.run(test_multiple_downloaders())
+    asyncio.run(test_case())
