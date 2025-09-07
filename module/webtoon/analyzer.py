@@ -13,7 +13,7 @@ sys.path.append(
 # 기존 pydantic 타입 정의 import
 from module.headers import headers
 from type.api.article_list import NWebtoonArticleListData
-from type.api.comic_info import NWebtoonMainData
+from type.api.comic_info import NWebtoonMainData, WebtoonType
 
 
 @dataclass
@@ -32,6 +32,7 @@ class WebtoonMetadata:
     title_id: int
     title_name: str
     is_adult: bool
+    webtoon_type: WebtoonType
     # list API에서 가져오는 값들 (성인 웹툰일 때는 0)
     total_count: int = 0
     page_size: int = 0
@@ -65,6 +66,7 @@ class WebtoonAnalyzer:
         self.__page_size = 0
         self.__total_pages = 0
         self.__is_adult = False
+        self.__webtoon_type = WebtoonType.webtoon
         self.__downloadable_episodes: List[EpisodeInfo] = []
         self.__full_episodes: List[EpisodeInfo] = []
 
@@ -115,6 +117,7 @@ class WebtoonAnalyzer:
         self.__page_size = metadata.page_size
         self.__total_pages = metadata.total_pages
         self.__is_adult = metadata.is_adult
+        self.__webtoon_type = metadata.webtoon_type
         self.__downloadable_episodes = downloadable_episodes
         self.__full_episodes = all_episodes
         self.__title_id = metadata.title_id
@@ -144,11 +147,14 @@ class WebtoonAnalyzer:
                 info_data = await info_response.json()
                 comic_info = NWebtoonMainData.from_dict(info_data)
 
+                # 일반 웹툰 / 베스트도전 / 도전만화 구분
+                webtoon_type: WebtoonType = comic_info.webtoonLevelCode
+
                 # 성인 웹툰 여부 확인 (age.type이 RATE_18이면 성인 웹툰)
-                is_adult = comic_info.age.type == "RATE_18"
+                is_adult: bool = comic_info.age.type == "RATE_18"
 
                 # 제목 가져오기
-                title_name = comic_info.titleName
+                title_name: str = comic_info.titleName
 
             # list API 요청
             # 성인 웹툰이 아닌 일반 웹툰인 경우
@@ -176,6 +182,7 @@ class WebtoonAnalyzer:
                 title_id=self.__title_id,
                 title_name=title_name,
                 is_adult=is_adult,
+                webtoon_type=webtoon_type,
                 total_count=total_count,
                 page_size=page_size,
                 total_pages=total_pages,
@@ -306,7 +313,13 @@ class WebtoonAnalyzer:
 
     @property
     def is_adult(self) -> bool:
+        """성인 웹툰 여부"""
         return self.__is_adult
+
+    @property
+    def webtoon_type(self) -> WebtoonType:
+        """웹툰 타입 (일반/베스트도전/도전만화)"""
+        return self.__webtoon_type
 
     @property
     def nid_aut(self) -> Optional[str]:
@@ -392,8 +405,8 @@ async def test_case():
     """WebtoonAnalyzer 테스트 - 지정된 title ID들로 테스트"""
     print("WebtoonAnalyzer 테스트 시작")
 
-    # 테스트할 title ID들 - 일반 웹툰, 성인 웹툰 X
-    title_ids: list[str] = [835801, 183559, 602287, 842399]
+    # 테스트할 title ID들 - 일반 / 베도 / 도전 웹툰, 성인 웹툰 X
+    title_ids: list[str] = [835801, 183559, 602287, 842399, 841764, 483237]
 
     for title_id in title_ids:
         await test_analyzer(title_id)

@@ -8,6 +8,9 @@ from dataclasses import dataclass, field
 from typing import List, Optional
 from bs4 import BeautifulSoup
 from pathlib import Path
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
 
 # 프로젝트 루트 디렉토리를 Python 경로에 추가
 sys.path.append(
@@ -16,7 +19,7 @@ sys.path.append(
 
 from module.webtoon.analyzer import EpisodeInfo, WebtoonAnalyzer
 from module.headers import headers
-from module.settings import Setting
+from module.settings import Setting, FileSettingType
 from module.file_processor import FileProcessor
 
 
@@ -39,6 +42,7 @@ class WebtoonDownloader:
         nid_aut: Optional[str] = None,
         nid_ses: Optional[str] = None,
     ) -> None:
+        #
         self.__title_id = title_id
         self.__episodes = episodes
         self.__webtoon_title = webtoon_title
@@ -53,7 +57,7 @@ class WebtoonDownloader:
         if nid_aut and nid_ses:
             self.__cookies = {"NID_AUT": nid_aut, "NID_SES": nid_ses}
 
-    async def get_episode_images(
+    async def __get_episode_images(
         self, episode: EpisodeImageInfo, verbose: bool = False
     ) -> EpisodeImageInfo:
         """
@@ -119,11 +123,11 @@ class WebtoonDownloader:
 
         return episode
 
-    async def get_episodes_with_images(
+    async def __get_episodes_with_images(
         self, episodes: List[EpisodeImageInfo], verbose: bool = False
     ) -> List[EpisodeImageInfo]:
         """
-        에피소드들의 이미지 URL을 모두 가져오는 함수
+        에피소드들의 이미지 URL을 모두 가져오기 위해 asyncio.gather() 을 사용해 병렬 처리를 수행하는 함수.
 
         Args:
             episodes: 이미지 URL을 수집할 에피소드 리스트
@@ -140,11 +144,11 @@ class WebtoonDownloader:
         # 모든 에피소드의 이미지 URL을 병렬로 가져오기
         tasks = []
         for episode in episodes:
-            task = self.get_episode_images(episode)
+            task = self.__get_episode_images(episode)
             tasks.append(task)
 
         # 모든 요청을 동시에 실행
-        episodes_with_images = await asyncio.gather(*tasks)
+        episodes_with_images: List[EpisodeImageInfo] = await asyncio.gather(*tasks)
 
         print(f"\n총 {len(episodes_with_images)}개 에피소드의 이미지 URL 수집 완료!")
 
@@ -183,11 +187,13 @@ class WebtoonDownloader:
             # 현재 배치의 이미지 URL을 병렬로 가져오기
             tasks = []
             for episode in batch:
-                task = self.get_episode_images(episode)
+                task = self.__get_episode_images(episode)
                 tasks.append(task)
 
             # 현재 배치의 요청을 동시에 실행
-            batch_results = await asyncio.gather(*tasks, return_exceptions=True)
+            batch_results: List[EpisodeImageInfo] = await asyncio.gather(
+                *tasks, return_exceptions=True
+            )
 
             # 결과 처리
             for j, result in enumerate(batch_results):
@@ -201,7 +207,7 @@ class WebtoonDownloader:
             # 서버 부하 방지를 위한 잠시 대기
             if i + batch_size < total_episodes:
                 delay = self.__settings.delay_seconds
-                print(f"  서버 부하 방지를 위해 {delay}초 대기합니다.")
+                print(f"서버 부하 방지를 위해 {delay}초 대기합니다.")
                 await asyncio.sleep(delay)
 
         print(f"\n총 {len(episodes_with_images)}개 에피소드의 이미지 URL 수집 완료!")
@@ -274,9 +280,19 @@ class WebtoonDownloader:
         async def download_single_episode_image(session, episode, img_url, img_idx):
             """단일 에피소드의 단일 이미지 다운로드"""
             async with semaphore:
-                # 다운로드 폴더 생성
-                download_dir = (
-                    Path("Webtoon_Download") / f"[{episode.no}] {episode.subtitle}"
+                # settings에서 folder zero fill 값 가져오기
+                folder_zfill: int = self.__settings.get_zero_fill(
+                    FileSettingType.Folder
+                )
+
+                # 가져온 zero fill 값 에피소드 번호에 적용
+                episode_no_zfill: str = str(episode.no).zfill(folder_zfill)
+
+                # 다운로드 폴더 경로 만들기
+                download_dir: Path = (
+                    Path("Webtoon_Download")
+                    / self.__webtoon_title
+                    / f"[{episode_no_zfill}] {episode.subtitle}"
                 )
 
                 # 파일 확장자 추출 (기본값: .jpg)
@@ -284,7 +300,10 @@ class WebtoonDownloader:
                 if "." in img_url.split("/")[-1]:
                     ext = "." + img_url.split(".")[-1].split("?")[0]
 
-                file_path = download_dir / f"{img_idx+1:03d}{ext}"
+                # 동일하게 settings에서 image zero fill 값 가져와서 이미지 파일명에 적용
+                image_zfill: int = self.__settings.get_zero_fill(FileSettingType.Image)
+                img_filename: str = str(img_idx + 1).zfill(image_zfill)
+                file_path: Path = download_dir / f"{img_filename}{ext}"
                 return await self.__download_single_image(session, img_url, file_path)
 
         try:
@@ -368,7 +387,7 @@ class WebtoonDownloader:
             tasks.append(task)
 
         # 모든 요청을 동시에 실행
-        download_results = await asyncio.gather(*tasks)
+        download_results: List[bool] = await asyncio.gather(*tasks)
 
         success_count = sum(download_results)
         print(f"\n총 {len(episodes)}개 에피소드 중 {success_count}개 다운로드 완료!")
@@ -411,15 +430,30 @@ class WebtoonDownloader:
             start_idx : end_idx + 1
         ]
 
-        print(f"\n{'='*60}")
-        print(
-            f"웹툰 다운로드 시작 - {len(selected_episodes)}개 에피소드 (배치 크기: {batch_size})"
+        # Rich를 사용해서 예쁜 다운로드 시작 메시지 출력
+        console = Console()
+
+        # 다운로드 정보 테이블 생성
+        table = Table(show_header=False, box=None, padding=(0, 1))
+        table.add_column("라벨", style="cyan bold", width=15)
+        table.add_column("값", style="white")
+
+        table.add_row("웹툰 제목:", self.__webtoon_title)
+        table.add_row("에피소드 수:", f"{len(selected_episodes)}개")
+        table.add_row("배치 크기:", str(batch_size))
+        table.add_row(
+            "대상 에피소드:",
+            f"{selected_episodes[0].no}화 ~ {selected_episodes[-1].no}화",
         )
-        print(f"인덱스 범위: {start} ~ {end}")
-        print(
-            f"대상 에피소드: {selected_episodes[0].no}화 ~ {selected_episodes[-1].no}화"
+
+        # 패널로 감싸서 출력
+        panel = Panel(
+            table,
+            title="[bold green]📚 웹툰 다운로드 시작[/bold green]",
+            border_style="green",
+            padding=(1, 2),
         )
-        print(f"{'='*60}")
+        console.print(panel)
 
         try:
             # EpisodeInfo를 EpisodeImageInfo로 변환
@@ -438,14 +472,12 @@ class WebtoonDownloader:
                 episode_image_infos, batch_size
             )
 
-            # 수집된 이미지 통계
-            total_images = sum(
-                len(episode.img_urls) for episode in episodes_with_images
+            console.print(
+                f"\n[green]✓[/green] 총 {len(episodes_with_images)}개 에피소드의 이미지 URL 수집 완료!"
             )
-            print(f"총 수집된 이미지 수: {total_images}개")
 
             # 모든 에피소드의 이미지를 한꺼번에 다운로드 (동시성 제한 적용)
-            print("\n다운로드 시작...")
+            console.print("\n[yellow]📥 다운로드 시작...[/yellow]")
             download_results = await self.__download_all_images_concurrent(
                 episodes_with_images
             )
@@ -455,18 +487,41 @@ class WebtoonDownloader:
             total_count = len(download_results)
             success_rate = (success_count / total_count * 100) if total_count > 0 else 0
 
-            print(f"\n{'='*60}")
-            print("다운로드 완료!")
-            print(
-                f"성공: {success_count}/{total_count}개 에피소드 ({success_rate:.1f}%)"
-            )
-            print(f"총 이미지 수: {total_images}개")
-            print(f"{'='*60}")
+            # 결과 테이블 생성
+            result_table = Table(show_header=False, box=None, padding=(0, 1))
+            result_table.add_column("라벨", style="cyan bold", width=12)
+            result_table.add_column("값", style="white")
 
-            return success_count == total_count
+            result_table.add_row("성공:", f"{success_count}개")
+            result_table.add_row("전체:", f"{total_count}개")
+            result_table.add_row("성공률:", f"{success_rate:.1f}%")
+
+            # 성공률에 따라 색상 및 아이콘 결정
+            if success_rate == 100:
+                title_style = "bold green"
+                icon = "🎉"
+                border_color = "green"
+            elif success_rate >= 80:
+                title_style = "bold yellow"
+                icon = "✅"
+                border_color = "yellow"
+            else:
+                title_style = "bold red"
+                icon = "⚠️"
+                border_color = "red"
+
+            result_panel = Panel(
+                result_table,
+                title=f"[{title_style}]{icon} 다운로드 완료[/{title_style}]",
+                border_style=border_color,
+                padding=(1, 2),
+            )
+            console.print(result_panel)
+
+            return success_rate == 100
 
         except Exception as e:
-            print(f"다운로드 중 오류 발생: {e}")
+            console.print(f"[red]❌ 다운로드 중 오류 발생: {e}[/red]")
             import traceback
 
             traceback.print_exc()
@@ -504,15 +559,28 @@ async def test_downloader(title_id: int, start: int, end: int):
         print(f"성인 웹툰 여부: {analyzer.is_adult}")
 
         if analyzer.is_adult:
-            print("성인 웹툰은 테스트를 지원하지 않습니다.")
-            return
+            print("성인 웹툰입니다. 로그인 정보가 필요합니다.")
+            print("NID_AUT와 NID_SES 쿠키 값을 입력해주세요.")
 
-        # 다운로드 가능한 에피소드만 다운로드 (유료 회차 지원 X)
-        downloadable_episodes = analyzer.downloadable_episodes
+            nid_aut = input("NID_AUT: ").strip()
+            nid_ses = input("NID_SES: ").strip()
 
-        # 다운로더로 다운로드 실행 (전체 에피소드 리스트와 함께 생성)
+            if not nid_aut or not nid_ses:
+                print("NID_AUT와 NID_SES 값이 모두 필요합니다.")
+                return
+
+            print("성인 웹툰 다운로드를 진행합니다...")
+        else:
+            nid_aut = None
+            nid_ses = None
+
+        # 다운로더로 다운로드 실행
         downloader = WebtoonDownloader(
-            title_id, downloadable_episodes, analyzer.title_name
+            analyzer.title_id,
+            analyzer.downloadable_episodes,
+            analyzer.title_name,
+            nid_aut,
+            nid_ses,
         )
 
         success = await downloader.download(start, end)
@@ -529,7 +597,7 @@ async def test_case():
     # 테스트할 title id들과 화수 범위
     test_cases = [
         # (835801, 1, 2),  # 달마건
-        (183559, 1, 653),  # 신의 탑
+        (183559, 1, 1),  # 신의 탑
         # (602287, 1, 2),  # 뷰티풀 군바리
     ]
 
