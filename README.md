@@ -29,7 +29,7 @@ https://pgh268400.tistory.com/216
 **다만 윈도우 기준으로 제작되어 일부 기능이 제대로 동작하지 않을 수 있습니다.**
 
 ```
-requirement : Python == 3.13
+requirement : Python >= 3.13
 ```
 
 ```
