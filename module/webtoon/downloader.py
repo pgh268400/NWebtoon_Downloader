@@ -109,7 +109,7 @@ class WebtoonDownloader:
                                 soup = BeautifulSoup(html_content, "lxml")
 
                                 # div.wt_viewer 태그 안의 모든 img 태그 찾기
-                                viewer = soup.find("div", class_="wt_viewer")
+                                viewer = soup.select_one("div.wt_viewer")
 
                                 if viewer:
                                     img_tags = viewer.find_all("img")  # type: ignore
@@ -275,6 +275,9 @@ class WebtoonDownloader:
 
         for attempt in range(max_retries + 1):
             try:
+                # 첫 시도 시 다운로드할 이미지 URL 출력 (진행 상황 표시)
+                if attempt == 0:
+                    print(img_url, flush=True)
                 async with session.get(img_url, headers=headers) as response:
                     if response.status == 200:
                         # 디렉토리가 없으면 생성
@@ -383,6 +386,8 @@ class WebtoonDownloader:
                 image_zfill: int = self.__settings.get_zero_fill(FileSettingType.Image)
                 img_filename: str = str(img_idx + 1).zfill(image_zfill)
                 file_path: Path = download_dir / f"{img_filename}{ext}"
+                # 다운로드 시작 전 URL을 출력하여 진행 상황 표시
+                print(f"[{episode.no}화] {img_idx+1}: {img_url}", flush=True)
                 return await self.__download_single_image(session, img_url, file_path)
 
         try:
