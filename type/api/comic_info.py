@@ -25,12 +25,6 @@ class WebtoonCode(StrEnum):
     BEST_CHALLENGE = auto()
 
 
-class WebtoonType(StrEnum):
-    webtoon = auto()
-    challenge = auto()
-    bestChallenge = auto()
-
-
 class AuthorBase(BaseModel):
     id: int = 0
     name: str = ""

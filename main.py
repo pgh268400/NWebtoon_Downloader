@@ -98,6 +98,7 @@ async def main() -> None:
                     analyzer.title_id,
                     analyzer.downloadable_episodes,
                     analyzer.title_name,
+                    analyzer.webtoon_type,
                     nid_aut,
                     nid_ses,
                 )

@@ -14,6 +14,8 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.live import Live
 
+from type.api.webtoon_type import WebtoonType
+
 # 프로젝트 루트 디렉토리를 Python 경로에 추가
 sys.path.append(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -41,6 +43,7 @@ class WebtoonDownloader:
         title_id: int,
         episodes: List[EpisodeInfo],
         webtoon_title: str,
+        webtoon_type: WebtoonType,
         nid_aut: Optional[str] = None,
         nid_ses: Optional[str] = None,
     ) -> None:
@@ -48,7 +51,9 @@ class WebtoonDownloader:
         self.__title_id = title_id
         self.__episodes = episodes
         self.__webtoon_title = webtoon_title
-        self.__detail_url = "https://comic.naver.com/webtoon/detail"
+        self.__webtoon_type = webtoon_type
+        # 요청에 사용할 상세 페이지 URL (웹툰 타입에 따라 세그먼트 달라짐)
+        self.__detail_url = f"https://comic.naver.com/{self.__webtoon_type.value}/detail"
 
         # 설정 및 파일 처리 객체 초기화
         self.__settings = Setting()
@@ -85,7 +90,10 @@ class WebtoonDownloader:
                 last_error: Optional[Exception] = None
                 for attempt in range(max_retries + 1):
                     try:
-                        async with session.get(url) as response:
+                        # 각 요청에 타임아웃을 부여해 무한 대기 방지
+                        async with session.get(
+                            url, timeout=aiohttp.ClientTimeout(total=10)
+                        ) as response:
                             if response.status == 200:
                                 # HTML 내용 가져오기 시간 측정
                                 html_start_time = time.time()
@@ -126,9 +134,20 @@ class WebtoonDownloader:
                                 # 성공 시 재시도 루프 종료
                                 break
                             else:
-                                # 비정상 응답 상태코드일 때 재시도
+                                # 비정상 응답 상태코드일 때 재시도 (429 등)
                                 if attempt < max_retries:
-                                    delay = backoff_base * (2**attempt)
+                                    # 429인 경우 Retry-After 헤더를 우선 적용
+                                    if response.status == 429:
+                                        retry_after = response.headers.get(
+                                            "Retry-After"
+                                        )
+                                        if retry_after and retry_after.isdigit():
+                                            delay = float(retry_after)
+                                        else:
+                                            delay = backoff_base * (2**attempt)
+                                    else:
+                                        delay = backoff_base * (2**attempt)
+
                                     print(
                                         f"  {episode.no}화: HTTP {response.status} (재시도 {attempt+1}/{max_retries}, {delay:.1f}s 대기)"
                                     )
@@ -336,11 +355,19 @@ class WebtoonDownloader:
                 # 가져온 zero fill 값 에피소드 번호에 적용
                 episode_no_zfill: str = str(episode.no).zfill(folder_zfill)
 
+                # 윈도우 파일시스템 금지문자 / 마침표 처리: 제목과 에피소드 제목 처리
+                safe_title: str = self.__file_processor.remove_forbidden_str(
+                    self.__webtoon_title
+                )
+                safe_subtitle: str = self.__file_processor.remove_forbidden_str(
+                    episode.subtitle
+                )
+
                 # 다운로드 폴더 경로 만들기
                 download_dir: Path = (
                     Path("Webtoon_Download")
-                    / self.__webtoon_title
-                    / f"[{episode_no_zfill}] {episode.subtitle}"
+                    / safe_title
+                    / f"[{episode_no_zfill}] {safe_subtitle}"
                 )
 
                 # 파일 확장자 추출 (기본값: .jpg)
@@ -456,12 +483,16 @@ class WebtoonDownloader:
         table.add_column("라벨", style="cyan bold", width=25)
         table.add_column("값", style="white")
 
-        table.add_row("웹툰 제목:", f"{self.__webtoon_title}({self.__title_id})")
+        table.add_row("웹툰 제목:", f"{self.__webtoon_title} ({self.__title_id})")
         table.add_row("에피소드 수:", f"{len(selected_episodes)}개")
         table.add_row("배치 크기:", str(batch_size))
         table.add_row(
             "다운로드 할 에피소드:",
             f"{selected_episodes[0].no}화 ~ {selected_episodes[-1].no}화",
+        )
+        table.add_row(
+            "다운로드 할 에피소드 명",
+            f"{selected_episodes[0].subtitle} ~ {selected_episodes[-1].subtitle}",
         )
 
         # 패널로 감싸서 출력
@@ -530,7 +561,7 @@ class WebtoonDownloader:
 
             result_panel = Panel(
                 result_table,
-                title=f"[{title_style}]{icon} 다운로드 완료[/{title_style}]",
+                title=f"[{title_style}]{icon}  다운로드 완료[/{title_style}]",
                 border_style=border_color,
                 padding=(1, 2),
             )
@@ -630,6 +661,7 @@ async def test_downloader(title_id: int, start: int, end: int):
             analyzer.title_id,
             analyzer.downloadable_episodes,
             analyzer.title_name,
+            analyzer.webtoon_type,
             nid_aut,
             nid_ses,
         )

@@ -13,7 +13,8 @@ sys.path.append(
 # 기존 pydantic 타입 정의 import
 from module.headers import headers
 from type.api.article_list import NWebtoonArticleListData
-from type.api.comic_info import NWebtoonMainData, WebtoonType
+from type.api.comic_info import NWebtoonMainData, WebtoonCode
+from type.api.webtoon_type import WebtoonType, to_webtoon_type
 
 
 @dataclass
@@ -153,8 +154,9 @@ class WebtoonAnalyzer:
                 # 웹툰 설명 가져오기
                 synopsis: str = comic_info.synopsis
 
-                # 일반 웹툰 / 베스트도전 / 도전만화 구분
-                webtoon_type: WebtoonType = comic_info.webtoonLevelCode
+                # 일반 웹툰 / 베스트도전 / 도전만화 구분 (API 코드 -> 내부 문자열 enum 매핑)
+                webtoon_code: WebtoonCode = comic_info.webtoonLevelCode
+                webtoon_type: WebtoonType = to_webtoon_type(webtoon_code)
 
                 # 성인 웹툰 여부 확인 (age.type이 RATE_18이면 성인 웹툰)
                 is_adult: bool = comic_info.age.type == "RATE_18"
@@ -418,7 +420,7 @@ async def test_case():
     print("WebtoonAnalyzer 테스트 시작")
 
     # 테스트할 title ID들 - 일반 / 베도 / 도전 웹툰, 성인 웹툰 X
-    title_ids: list[str] = [835801, 183559, 602287, 842399, 841764, 483237]
+    title_ids: list[int] = [835801, 183559, 602287, 842399, 841764, 483237]
 
     for title_id in title_ids:
         await test_analyzer(title_id)
