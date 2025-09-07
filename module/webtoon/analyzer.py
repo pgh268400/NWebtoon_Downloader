@@ -31,6 +31,7 @@ class WebtoonMetadata:
 
     title_id: int
     title_name: str
+    synopsis: str
     is_adult: bool
     webtoon_type: WebtoonType
     # list API에서 가져오는 값들 (성인 웹툰일 때는 0)
@@ -67,6 +68,7 @@ class WebtoonAnalyzer:
         self.__total_pages = 0
         self.__is_adult = False
         self.__webtoon_type = WebtoonType.webtoon
+        self.__synopsis = ""  # 웹툰 설명
         self.__downloadable_episodes: List[EpisodeInfo] = []
         self.__full_episodes: List[EpisodeInfo] = []
 
@@ -112,6 +114,7 @@ class WebtoonAnalyzer:
 
         # 데이터를 인스턴스 변수에 저장
         self.__title_name = metadata.title_name
+        self.__synopsis = metadata.synopsis
         self.__total_count = metadata.total_count
         self.__downloadable_count = downloadable_count
         self.__page_size = metadata.page_size
@@ -147,6 +150,9 @@ class WebtoonAnalyzer:
                 info_data = await info_response.json()
                 comic_info = NWebtoonMainData.from_dict(info_data)
 
+                # 웹툰 설명 가져오기
+                synopsis: str = comic_info.synopsis
+
                 # 일반 웹툰 / 베스트도전 / 도전만화 구분
                 webtoon_type: WebtoonType = comic_info.webtoonLevelCode
 
@@ -181,6 +187,7 @@ class WebtoonAnalyzer:
             return WebtoonMetadata(
                 title_id=self.__title_id,
                 title_name=title_name,
+                synopsis=synopsis,
                 is_adult=is_adult,
                 webtoon_type=webtoon_type,
                 total_count=total_count,
@@ -310,6 +317,11 @@ class WebtoonAnalyzer:
     def title_name(self) -> str:
         """웹툰 제목"""
         return self.__title_name
+
+    @property
+    def synopsis(self) -> str:
+        """웹툰 설명"""
+        return self.__synopsis
 
     @property
     def is_adult(self) -> bool:

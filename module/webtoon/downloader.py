@@ -174,6 +174,12 @@ class WebtoonDownloader:
 
         print(f"\n{len(episodes)}개 에피소드의 이미지 URL을 수집합니다...")
         print(f"배치 크기: {batch_size}개씩 처리")
+        print(
+            "URL 수집 중 길게 멈추거나 작동하지 않을 시 프로그램 종료 후 조금 기다린 후 다시 실행해주세요."
+        )
+        print(
+            "URL 수집에 문제가 많이 발생할 경우 settings.ini 파일에서 batchsize의 값을 줄이고 delayseconds를 늘려보세요."
+        )
 
         episodes_with_images = []
         total_episodes = len(episodes)
@@ -365,36 +371,6 @@ class WebtoonDownloader:
             print(f"이미지 다운로드 중 오류 발생: {e}")
             return [False] * len(episodes)
 
-    async def download_episodes(self, episodes: List[EpisodeImageInfo]) -> List[bool]:
-        """
-        에피소드들의 이미지를 모두 다운로드하는 함수
-
-        Args:
-            episodes: 이미지 URL이 포함된 에피소드 리스트
-
-        Returns:
-            각 에피소드의 다운로드 성공 여부 리스트
-        """
-        if not episodes:
-            print("다운로드할 에피소드가 없습니다.")
-            return []
-
-        print(f"\n{len(episodes)}개 에피소드의 이미지를 다운로드합니다...")
-
-        # 모든 에피소드의 이미지를 병렬로 다운로드
-        tasks = []
-        for episode in episodes:
-            task = self.download_episode_images(episode)
-            tasks.append(task)
-
-        # 모든 요청을 동시에 실행
-        download_results: List[bool] = await asyncio.gather(*tasks)
-
-        success_count = sum(download_results)
-        print(f"\n총 {len(episodes)}개 에피소드 중 {success_count}개 다운로드 완료!")
-
-        return download_results
-
     async def download(
         self, start: int, end: int, batch_size: Optional[int] = None
     ) -> bool:
@@ -436,7 +412,7 @@ class WebtoonDownloader:
 
         # 다운로드 정보 테이블 생성
         table = Table(show_header=False, box=None, padding=(0, 1))
-        table.add_column("라벨", style="cyan bold", width=15)
+        table.add_column("라벨", style="cyan bold", width=25)
         table.add_column("값", style="white")
 
         table.add_row("웹툰 제목:", f"{self.__webtoon_title}({self.__title_id})")
@@ -556,10 +532,10 @@ async def test_downloader(title_id: int, start: int, end: int):
         # Rich를 사용해서 웹툰 정보 수집 과정을 표시 (하나의 패널에서 상태 갱신)
         console = Console()
 
-        def panel(title_id, analyzer=None) -> Panel:
+        def analyzer_panel(title_id, analyzer=None) -> Panel:
             done = analyzer is not None
             collecting = "[yellow]📡 웹툰 정보를 수집하고 있습니다...[/yellow]"
-            completed  = "[green]✅ 웹툰 정보 수집이 완료되었습니다![/green]"
+            completed = "[green]✅ 웹툰 정보 수집이 완료되었습니다![/green]"
 
             table = Table(show_header=False, box=None, padding=(0, 1))
             table.add_column("라벨", style="cyan bold", width=15)
@@ -567,7 +543,9 @@ async def test_downloader(title_id: int, start: int, end: int):
 
             if done:
                 table.add_row("웹툰 제목:", analyzer.title_name)
-                table.add_row("총 에피소드:", f"{len(analyzer.downloadable_episodes)}화")
+                table.add_row(
+                    "총 에피소드:", f"{len(analyzer.downloadable_episodes)}화"
+                )
                 table.add_row("상태:", f"{collecting}\n{completed}")
             else:
                 table.add_row("타이틀 ID:", str(title_id))
@@ -575,15 +553,25 @@ async def test_downloader(title_id: int, start: int, end: int):
 
             return Panel(
                 table,
-                title="[bold green]✔️  분석 완료[/bold green]" if done else "[bold blue]🔍 웹툰 분석 중[/bold blue]",
+                title=(
+                    "[bold green]✔️  분석 완료[/bold green]"
+                    if done
+                    else "[bold blue]🔍 웹툰 분석 중[/bold blue]"
+                ),
                 border_style="green" if done else "blue",
                 padding=(1, 2),
             )
 
         # Live로 동일 패널 갱신
-        with Live(panel(title_id), console=console, refresh_per_second=4) as live:
+        with Live(
+            analyzer_panel(title_id), console=console, refresh_per_second=4
+        ) as live:
             analyzer = await WebtoonAnalyzer.create(title_id)
-            live.update(panel(title_id, analyzer))
+            live.update(analyzer_panel(title_id, analyzer))
+
+        # 성인 웹툰 인증용 쿠키
+        nid_aut: Optional[str] = None
+        nid_ses: Optional[str] = None
 
         if analyzer.is_adult:
             print("성인 웹툰입니다. 로그인 정보가 필요합니다.")
@@ -595,11 +583,6 @@ async def test_downloader(title_id: int, start: int, end: int):
             if not nid_aut or not nid_ses:
                 print("NID_AUT와 NID_SES 값이 모두 필요합니다.")
                 return
-
-            print("성인 웹툰 다운로드를 진행합니다...")
-        else:
-            nid_aut = None
-            nid_ses = None
 
         # 다운로더로 다운로드 실행
         downloader = WebtoonDownloader(
