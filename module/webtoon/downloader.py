@@ -52,8 +52,11 @@ class WebtoonDownloader:
         self.__episodes = episodes
         self.__webtoon_title = webtoon_title
         self.__webtoon_type = webtoon_type
+
         # 요청에 사용할 상세 페이지 URL (웹툰 타입에 따라 세그먼트 달라짐)
-        self.__detail_url = f"https://comic.naver.com/{self.__webtoon_type.value}/detail"
+        self.__detail_url = (
+            f"https://comic.naver.com/{self.__webtoon_type.value}/detail"
+        )
 
         # 설정 및 파일 처리 객체 초기화
         self.__settings = Setting()
@@ -105,10 +108,11 @@ class WebtoonDownloader:
                                 parse_start_time = time.time()
                                 soup = BeautifulSoup(html_content, "lxml")
 
-                                # sectionContWide 태그 안의 모든 img 태그 찾기
-                                section = soup.find("div", id="sectionContWide")
-                                if section:
-                                    img_tags = section.find_all("img")  # type: ignore
+                                # div.wt_viewer 태그 안의 모든 img 태그 찾기
+                                viewer = soup.find("div", class_="wt_viewer")
+
+                                if viewer:
+                                    img_tags = viewer.find_all("img")  # type: ignore
                                     img_urls = []
 
                                     for img in img_tags:
