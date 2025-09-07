@@ -4,6 +4,7 @@ import aiofiles
 import sys
 import os
 import time
+import random
 from dataclasses import dataclass, field
 from typing import List, Optional
 from bs4 import BeautifulSoup
@@ -73,87 +74,97 @@ class WebtoonDownloader:
         """
         url = f"{self.__detail_url}?titleId={self.__title_id}&no={episode.no}"
 
+        # 요청 안정성을 높이기 위해 최대 3회까지 재시도(지수 백오프) 적용
+        max_retries = 3
+        backoff_base = 1.0  # 초 단위, 1 -> 2 -> 4 ...
+
         try:
             async with aiohttp.ClientSession(
                 headers=headers, cookies=self.__cookies
             ) as session:
-                async with session.get(url) as response:
-                    if response.status == 200:
-                        # HTML 내용 가져오기 시간 측정
-                        html_start_time = time.time()
-                        html_content = await response.text()
-                        html_end_time = time.time()
-                        html_time = html_end_time - html_start_time
+                last_error: Optional[Exception] = None
+                for attempt in range(max_retries + 1):
+                    try:
+                        async with session.get(url) as response:
+                            if response.status == 200:
+                                # HTML 내용 가져오기 시간 측정
+                                html_start_time = time.time()
+                                html_content = await response.text()
+                                html_end_time = time.time()
+                                html_time = html_end_time - html_start_time
 
-                        # BeautifulSoup 파싱 시간 측정
-                        parse_start_time = time.time()
-                        soup = BeautifulSoup(html_content, "lxml")
+                                # BeautifulSoup 파싱 시간 측정
+                                parse_start_time = time.time()
+                                soup = BeautifulSoup(html_content, "lxml")
 
-                        # sectionContWide 태그 안의 모든 img 태그 찾기
-                        section = soup.find("div", id="sectionContWide")
-                        if section:
-                            img_tags = section.find_all("img")  # type: ignore
-                            img_urls = []
+                                # sectionContWide 태그 안의 모든 img 태그 찾기
+                                section = soup.find("div", id="sectionContWide")
+                                if section:
+                                    img_tags = section.find_all("img")  # type: ignore
+                                    img_urls = []
 
-                            for img in img_tags:
-                                src = img.get("src")  # type: ignore
-                                if src:
-                                    img_urls.append(src)
-                        else:
-                            img_urls = []
+                                    for img in img_tags:
+                                        src = img.get("src")  # type: ignore
+                                        if src:
+                                            img_urls.append(src)
+                                else:
+                                    img_urls = []
 
-                        parse_end_time = time.time()
-                        parse_time = parse_end_time - parse_start_time
-                        total_parse_time = parse_end_time - html_start_time
+                                parse_end_time = time.time()
+                                parse_time = parse_end_time - parse_start_time
+                                total_parse_time = parse_end_time - html_start_time
 
-                        episode.img_urls = img_urls
-                        if verbose:
+                                episode.img_urls = img_urls
+                                if verbose:
+                                    print(
+                                        f"  {episode.no}화: {len(img_urls)}개 이미지 URL 수집 완료 (HTML: {html_time:.3f}s, 파싱: {parse_time:.3f}s, 총: {total_parse_time:.3f}s)"
+                                    )
+                                else:
+                                    print(
+                                        f"  {episode.no}화: {len(img_urls)}개 이미지 URL 수집 완료"
+                                    )
+                                # 성공 시 재시도 루프 종료
+                                break
+                            else:
+                                # 비정상 응답 상태코드일 때 재시도
+                                if attempt < max_retries:
+                                    delay = backoff_base * (2**attempt)
+                                    print(
+                                        f"  {episode.no}화: HTTP {response.status} (재시도 {attempt+1}/{max_retries}, {delay:.1f}s 대기)"
+                                    )
+                                    await asyncio.sleep(delay)
+                                    continue
+                                else:
+                                    print(
+                                        f"  {episode.no}화: HTTP 요청 실패 ({response.status}), 재시도 한도 초과"
+                                    )
+                                    episode.img_urls = []
+                    except Exception as e:
+                        # 네트워크 오류 등 예외 발생 시 재시도
+                        last_error = e
+                        if attempt < max_retries:
+                            delay = backoff_base * (2**attempt)
                             print(
-                                f"  {episode.no}화: {len(img_urls)}개 이미지 URL 수집 완료 (HTML: {html_time:.3f}s, 파싱: {parse_time:.3f}s, 총: {total_parse_time:.3f}s)"
+                                f"  {episode.no}화: 요청 중 오류 발생 - {e} (재시도 {attempt+1}/{max_retries}, {delay:.1f}s 대기)"
                             )
+                            await asyncio.sleep(delay)
+                            continue
                         else:
                             print(
-                                f"  {episode.no}화: {len(img_urls)}개 이미지 URL 수집 완료"
+                                f"  {episode.no}화: 이미지 URL 수집 중 오류 발생 - {e} (재시도 한도 초과)"
                             )
-                    else:
-                        print(f"  {episode.no}화: HTTP 요청 실패 ({response.status})")
-                        episode.img_urls = []
+                            episode.img_urls = []
+                else:
+                    # for-else: break 없이 종료된 경우 (모든 시도 실패)
+                    if last_error is not None:
+                        print(f"  {episode.no}화: 최종 실패 - {last_error}")
+                    episode.img_urls = []
         except Exception as e:
+            # 세션 생성 등 상위 레벨 예외 처리
             print(f"  {episode.no}화: 이미지 URL 수집 중 오류 발생 - {e}")
             episode.img_urls = []
 
         return episode
-
-    async def __get_episodes_with_images(
-        self, episodes: List[EpisodeImageInfo], verbose: bool = False
-    ) -> List[EpisodeImageInfo]:
-        """
-        에피소드들의 이미지 URL을 모두 가져오기 위해 asyncio.gather() 을 사용해 병렬 처리를 수행하는 함수.
-
-        Args:
-            episodes: 이미지 URL을 수집할 에피소드 리스트
-
-        Returns:
-            이미지 URL이 포함된 에피소드 리스트
-        """
-        if not episodes:
-            print("수집할 에피소드가 없습니다.")
-            return []
-
-        print(f"\n{len(episodes)}개 에피소드의 이미지 URL을 수집합니다...")
-
-        # 모든 에피소드의 이미지 URL을 병렬로 가져오기
-        tasks = []
-        for episode in episodes:
-            task = self.__get_episode_images(episode)
-            tasks.append(task)
-
-        # 모든 요청을 동시에 실행
-        episodes_with_images: List[EpisodeImageInfo] = await asyncio.gather(*tasks)
-
-        print(f"\n총 {len(episodes_with_images)}개 에피소드의 이미지 URL 수집 완료!")
-
-        return episodes_with_images
 
     async def get_episodes_with_images_batch(
         self, episodes: List[EpisodeImageInfo], batch_size: int
@@ -235,23 +246,53 @@ class WebtoonDownloader:
         Returns:
             다운로드 성공 여부
         """
-        try:
-            print(img_url)
-            async with session.get(img_url, headers=headers) as response:
-                if response.status == 200:
-                    # 디렉토리가 없으면 생성
-                    file_path.parent.mkdir(parents=True, exist_ok=True)
+        # 요청 안정성을 높이기 위해 이미지 다운로드에 재시도(지수 백오프 + 지터) 적용
+        max_retries = 5
+        backoff_base = 1.0  # 1 -> 2 -> 4 -> 8 -> 16 초
 
-                    async with aiofiles.open(file_path, "wb") as f:
-                        async for chunk in response.content.iter_chunked(8192):
-                            await f.write(chunk)
-                    return True
+        for attempt in range(max_retries + 1):
+            try:
+                async with session.get(img_url, headers=headers) as response:
+                    if response.status == 200:
+                        # 디렉토리가 없으면 생성
+                        file_path.parent.mkdir(parents=True, exist_ok=True)
+
+                        async with aiofiles.open(file_path, "wb") as f:
+                            async for chunk in response.content.iter_chunked(8192):
+                                await f.write(chunk)
+                        return True
+                    else:
+                        # 상태 코드가 비정상인 경우 재시도
+                        if attempt < max_retries:
+                            delay = backoff_base * (2**attempt)
+                            # 0~20% 지터 추가로 동시 재시도 충돌 방지
+                            delay *= 1 + random.uniform(0, 0.2)
+                            print(
+                                f"실패: {img_url} (HTTP {response.status}) -> 재시도 {attempt+1}/{max_retries} ({delay:.1f}s 대기)"
+                            )
+                            await asyncio.sleep(delay)
+                            continue
+                        else:
+                            print(
+                                f"실패: {img_url} (HTTP {response.status}), 재시도 한도 초과"
+                            )
+                            return False
+            except Exception as e:
+                # 네트워크 오류 등 예외 발생 시 재시도
+                if attempt < max_retries:
+                    delay = backoff_base * (2**attempt)
+                    delay *= 1 + random.uniform(0, 0.2)
+                    print(
+                        f"오류: {img_url} - {e} -> 재시도 {attempt+1}/{max_retries} ({delay:.1f}s 대기)"
+                    )
+                    await asyncio.sleep(delay)
+                    continue
                 else:
-                    print(f"실패: {img_url} (HTTP {response.status})")
+                    print(f"오류: {img_url} - {e} (재시도 한도 초과)")
                     return False
-        except Exception as e:
-            print(f"오류: {img_url} - {e}")
-            return False
+
+        # 모든 경로가 반환되도록 안전망 리턴 (정상 동작 중엔 도달하지 않음)
+        return False
 
     async def __download_all_images_concurrent(
         self, episodes: List[EpisodeImageInfo], max_concurrent: Optional[int] = None

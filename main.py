@@ -12,6 +12,9 @@ from module.settings import Setting
 from module.html_maker import HtmlMaker
 from sys import exit
 from rich import print
+from rich.console import Console
+from rich.table import Table
+from rich.panel import Panel
 import os
 from module.title_changer import change_title
 
@@ -58,17 +61,31 @@ async def main() -> None:
                     if not nid_aut or not nid_ses:
                         raise Exception("NID_AUT와 NID_SES 값이 필요합니다.")
 
-                print("-------------------------------")
-                print(f"[bold green]웹툰명[/bold green] : {analyzer.title_name}")
-                print(
-                    f"[bold green]총 에피소드 수[/bold green] : {len(analyzer.full_episodes)}화"
+                # 분석된 웹툰 정보를 Rich 패널로 표시 (downloader.py 디자인 참고)
+                console = Console()
+
+                info_table = Table(show_header=False, box=None, padding=(0, 1))
+                info_table.add_column("라벨", style="cyan bold", width=30)
+                info_table.add_column("값", style="white")
+
+                info_table.add_row("웹툰명:", analyzer.title_name)
+                info_table.add_row(
+                    "총 에피소드 수:", f"{len(analyzer.full_episodes)}화"
                 )
-                print(
-                    f"[bold green]다운로드 가능한 에피소드 수[/bold green] : {len(analyzer.downloadable_episodes)}화"
+                info_table.add_row(
+                    "다운로드 가능한 에피소드 수:",
+                    f"{len(analyzer.downloadable_episodes)}화",
                 )
-                print(f"[bold green]종류[/bold green] : {analyzer.webtoon_type}")
-                print(analyzer.synopsis)
-                print("-------------------------------")
+                info_table.add_row("종류:", str(analyzer.webtoon_type))
+                info_table.add_row("소개:", analyzer.synopsis)
+
+                info_panel = Panel(
+                    info_table,
+                    title="[bold green]📚 웹툰 정보[/bold green]",
+                    border_style="green",
+                    padding=(1, 2),
+                )
+                console.print(info_panel)
 
                 # 입력값 검증 : "숫자" 또는 "숫자-숫자" 만 입력할때까지 입력을 받는다.
                 dialog = input_until_correct_download_range(
