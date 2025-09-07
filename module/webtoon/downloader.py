@@ -11,6 +11,7 @@ from pathlib import Path
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+from rich.live import Live
 
 # 프로젝트 루트 디렉토리를 Python 경로에 추가
 sys.path.append(
@@ -438,11 +439,11 @@ class WebtoonDownloader:
         table.add_column("라벨", style="cyan bold", width=15)
         table.add_column("값", style="white")
 
-        table.add_row("웹툰 제목:", self.__webtoon_title)
+        table.add_row("웹툰 제목:", f"{self.__webtoon_title}({self.__title_id})")
         table.add_row("에피소드 수:", f"{len(selected_episodes)}개")
         table.add_row("배치 크기:", str(batch_size))
         table.add_row(
-            "대상 에피소드:",
+            "다운로드 할 에피소드:",
             f"{selected_episodes[0].no}화 ~ {selected_episodes[-1].no}화",
         )
 
@@ -477,7 +478,7 @@ class WebtoonDownloader:
             )
 
             # 모든 에피소드의 이미지를 한꺼번에 다운로드 (동시성 제한 적용)
-            console.print("\n[yellow]📥 다운로드 시작...[/yellow]")
+            console.print("\n[yellow]📥 다운로드 시작[/yellow]")
             download_results = await self.__download_all_images_concurrent(
                 episodes_with_images
             )
@@ -552,11 +553,37 @@ class WebtoonDownloader:
 async def test_downloader(title_id: int, start: int, end: int):
     """WebtoonDownloader의 download() 함수를 테스트"""
     try:
-        # WebtoonAnalyzer로 에피소드 정보 가져오기
-        analyzer = await WebtoonAnalyzer.create(title_id)
+        # Rich를 사용해서 웹툰 정보 수집 과정을 표시 (하나의 패널에서 상태 갱신)
+        console = Console()
 
-        print(f"웹툰 제목: {analyzer.title_name}")
-        print(f"성인 웹툰 여부: {analyzer.is_adult}")
+        def panel(title_id, analyzer=None) -> Panel:
+            done = analyzer is not None
+            collecting = "[yellow]📡 웹툰 정보를 수집하고 있습니다...[/yellow]"
+            completed  = "[green]✅ 웹툰 정보 수집이 완료되었습니다![/green]"
+
+            table = Table(show_header=False, box=None, padding=(0, 1))
+            table.add_column("라벨", style="cyan bold", width=15)
+            table.add_column("값", style="white")
+
+            if done:
+                table.add_row("웹툰 제목:", analyzer.title_name)
+                table.add_row("총 에피소드:", f"{len(analyzer.downloadable_episodes)}화")
+                table.add_row("상태:", f"{collecting}\n{completed}")
+            else:
+                table.add_row("타이틀 ID:", str(title_id))
+                table.add_row("상태:", collecting)
+
+            return Panel(
+                table,
+                title="[bold green]✔️  분석 완료[/bold green]" if done else "[bold blue]🔍 웹툰 분석 중[/bold blue]",
+                border_style="green" if done else "blue",
+                padding=(1, 2),
+            )
+
+        # Live로 동일 패널 갱신
+        with Live(panel(title_id), console=console, refresh_per_second=4) as live:
+            analyzer = await WebtoonAnalyzer.create(title_id)
+            live.update(panel(title_id, analyzer))
 
         if analyzer.is_adult:
             print("성인 웹툰입니다. 로그인 정보가 필요합니다.")
@@ -592,17 +619,14 @@ async def test_downloader(title_id: int, start: int, end: int):
 
 async def test_case():
     """WebtoonDownloader 테스트 - 지정된 title ID들로 테스트"""
-    print("WebtoonDownloader 테스트 시작")
-
     # 테스트할 title id들과 화수 범위
     test_cases = [
         # (835801, 1, 2),  # 달마건
-        (183559, 1, 1),  # 신의 탑
+        (183559, 1, 10),  # 신의 탑
         # (602287, 1, 2),  # 뷰티풀 군바리
     ]
 
     for title_id, start, end in test_cases:
-        print(f"\n=== 타이틀 ID: {title_id} ({start}화~{end}화) ===")
         await test_downloader(title_id, start, end)
 
 
