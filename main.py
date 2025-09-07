@@ -60,6 +60,13 @@ async def main() -> None:
 
                     if not nid_aut or not nid_ses:
                         raise Exception("NID_AUT와 NID_SES 값이 필요합니다.")
+                    else:
+                        # nid_aut, nid_ses 입력시 analyzer 객체 갱신 (재생성)
+                        analyzer = await WebtoonAnalyzer.create(
+                            title_id, nid_aut, nid_ses
+                        )
+
+                        print(analyzer.__dict__)
 
                 # 분석된 웹툰 정보를 Rich 패널로 표시 (downloader.py 디자인 참고)
                 console = Console()

@@ -2,7 +2,7 @@ import os
 import ctypes
 
 # 콘솔창 타이틀 변경 (윈도우 전용)
-WINDOW_TITLE = "NWebtoon Downloader v5.3-NEW"
+WINDOW_TITLE = "NWebtoon Downloader v6.0-beta"
 
 
 def change_title() -> None:

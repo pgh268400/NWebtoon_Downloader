@@ -97,9 +97,9 @@ class WebtoonAnalyzer:
         # 웹툰 메타데이터 가져오기
         metadata: WebtoonMetadata = await self.__fetch_webtoon_metadata()
 
-        # 성인 웹툰이 아닐 때만 에피소드 정보 가져오기
-        # 참고 : 성인 웹툰인 경우엔 아래 함수를 통해 에피소드 정보를 가져올 수 없음
-        if not metadata.is_adult:
+        # 에피소드 정보 가져오기 기준을 '성인 여부'가 아니라 'list API가 반환한 페이지 수'로 판단
+        # (성인 웹툰이라도 쿠키가 있으면 list API 접근 가능하므로 total_pages>0이면 수집 시도)
+        if metadata.total_pages and metadata.total_pages > 0:
             # 모든 에피소드 정보 가져오기
             all_episodes = await self.__get_all_episodes(metadata)
 
@@ -107,8 +107,8 @@ class WebtoonAnalyzer:
             downloadable_count, downloadable_episodes = (
                 self.__find_downloadable_episodes(all_episodes)
             )
-        # 성인 웹툰인 경우 빈 값으로 설정
         else:
+            # list API 접근이 불가(성인+미인증 등)한 경우 빈 값으로 설정
             all_episodes = []
             downloadable_count = 0
             downloadable_episodes = []
@@ -165,8 +165,8 @@ class WebtoonAnalyzer:
                 title_name: str = comic_info.titleName
 
             # list API 요청
-            # 성인 웹툰이 아닌 일반 웹툰인 경우
-            if not is_adult:
+            # 일반 웹툰이거나, 성인 웹툰이더라도 인증 쿠키가 있으면 시도
+            if (not is_adult) or (is_adult and self.__cookies):
                 async with session.get(list_url) as response:
                     if response.status == 200:
                         data = await response.json()
@@ -178,10 +178,12 @@ class WebtoonAnalyzer:
                         page_size = article_list_data.pageInfo.pageSize
                         total_pages = article_list_data.pageInfo.totalPages
                     else:
-                        raise Exception(f"List API 요청 실패: {response.status}")
-            # 성인 웹툰인 경우 list 요청은 확정적으로 실패
+                        # 인증이 있어도 실패할 수 있으므로 0으로 설정 (다운로드 비활성)
+                        total_count = 0
+                        page_size = 0
+                        total_pages = 0
             else:
-                # 성인 웹툰인 경우 list API 요청을 시도하지 않고 0으로 설정
+                # 성인 웹툰 + 미인증 등으로 list API 접근 불가
                 total_count = 0
                 page_size = 0
                 total_pages = 0
