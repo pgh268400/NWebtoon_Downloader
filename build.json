@@ -7,7 +7,7 @@
   },
   {
    "optionDest": "filenames",
-   "value": "C:/Users/pgh26/PycharmProjects/NWebtoon_Downloader/main.py"
+   "value": "C:/Users/pgh268400/Lab/Python/NWebtoon_Downloader/main.py"
   },
   {
    "optionDest": "onefile",
@@ -19,11 +19,7 @@
   },
   {
    "optionDest": "icon_file",
-   "value": "C:/Users/pgh26/PycharmProjects/NWebtoon_Downloader/main.ico"
-  },
-  {
-   "optionDest": "ascii",
-   "value": false
+   "value": "C:/Users/pgh268400/Lab/Python/NWebtoon_Downloader/main.ico"
   },
   {
    "optionDest": "clean_build",
@@ -42,10 +38,6 @@
    "value": false
   },
   {
-   "optionDest": "embed_manifest",
-   "value": true
-  },
-  {
    "optionDest": "uac_admin",
    "value": false
   },
@@ -54,19 +46,11 @@
    "value": false
   },
   {
-   "optionDest": "win_private_assemblies",
-   "value": false
-  },
-  {
-   "optionDest": "win_no_prefer_redirects",
+   "optionDest": "argv_emulation",
    "value": false
   },
   {
    "optionDest": "bootloader_ignore_signals",
-   "value": false
-  },
-  {
-   "optionDest": "argv_emulation",
    "value": false
   }
  ],
