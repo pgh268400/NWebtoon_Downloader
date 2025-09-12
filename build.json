@@ -39,7 +39,7 @@
   },
   {
    "optionDest": "uac_admin",
-   "value": false
+   "value": true
   },
   {
    "optionDest": "uac_uiaccess",
