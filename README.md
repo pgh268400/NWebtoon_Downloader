@@ -2,8 +2,7 @@
 
 ![image](https://user-images.githubusercontent.com/31213158/222766338-b20b22b9-909c-46df-ac24-fe2f26e71196.png)
 Python으로 제작한 CLI 버전  
-네이버 웹툰 초고속 다운로더 입니다.  
-https://pgh268400.tistory.com/216
+네이버 웹툰 초고속 다운로더 입니다.
 
 ## 지원 기능
 * 웹툰 부분, 전체 다운로드

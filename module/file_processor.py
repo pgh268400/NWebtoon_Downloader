@@ -9,6 +9,7 @@ class FileProcessor:
         경로 금지 문자 제거, HTML문자 제거
         폴더에 들어갈 수 없는 특수문자를 들어갈 수 있는
         특수한 유니코드 문자 (겉보기에 똑같은 문자)로 치환 시킨다.
+        윈도우에서는 시작/끝 공백문자가 금지되어있어 trim()도 같이 수행한다.
         """
         table = str.maketrans('\\/:*?"<>|..', "￦／：＊？＂˂˃｜․․")
         processed_string: str = string.translate(table)
@@ -16,7 +17,7 @@ class FileProcessor:
         # \t 과 \n제거 (\t -> 공백 , \n -> 공백)
         table = str.maketrans("\t\n", "  ")
         processed_string = processed_string.translate(table)
-        return processed_string
+        return processed_string.strip()
 
     def remove_tag(self, string: str) -> str:
         # <tag>, &nbfs 등등 제거
