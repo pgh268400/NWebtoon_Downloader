@@ -1,12 +1,17 @@
 import json
+import os
 import re
-from typing import Literal
-from rich import print
+from typing import List
+from rich.console import Console
+from rich.table import Table
+from rich.panel import Panel
+from rich.box import ROUNDED
 import requests
 
 # 경로는 main.py의 위치를 기준으로 import함에 주의
 from module.headers import headers
-from type.api.search_all import NWebtoonSearchData, SearchView
+from type.api.search_all import NWebtoonSearchData, SearchGenre, SearchView
+from type.api.webtoon_type import WebtoonType
 
 
 class WebtoonSearch:
@@ -22,8 +27,9 @@ class WebtoonSearch:
         # 생성자에서 파이썬 인스턴스 변수 초기화
         self.__title_id: str = ""
 
+        # 5~6자리의 숫자를 찾는 정규식
         exp = "[0-9]{5,6}"
-        if "titleId=" in query:  # 입력값에 titleid가 존재하면
+        if "titleId=" in query:  # 입력값에 title_id가 존재하면 title_id 패턴 검색
             id_pattern = re.search(exp, query)
             if id_pattern:
                 self.__title_id = id_pattern.group()
@@ -42,38 +48,44 @@ class WebtoonSearch:
     def search_api_parser(
         self,
         webtoon: NWebtoonSearchData,
-        type: Literal["webtoon", "challenge", "bestChallenge"],
+        type: WebtoonType,
     ):
-        if type == "webtoon":
+        if type == WebtoonType.webtoon:
             webtoon_lst = webtoon.searchWebtoonResult.searchViewList
-        elif type == "bestChallenge":
+        elif type == WebtoonType.bestChallenge:
             webtoon_lst = webtoon.searchBestChallengeResult.searchViewList
-        elif type == "challenge":
+        elif type == WebtoonType.challenge:
             webtoon_lst = webtoon.searchChallengeResult.searchViewList
 
-        # enumerate() 함수는 기본적으로 인덱스와 원소로 이루어진 튜플(tuple)을 만들어준다
-        # ex) enumerate([1,2,3,4,5]) -> [(0,1), (1,2), (2,3), (3,4), (4,5)]
-        # enumerate() 함수의 두번째 인자는 인덱스의 시작값을 지정할 수 있다.
-        # ex) enumerate([1,2,3,4,5], 1) -> [(1,1), (2,2), (3,3), (4,4), (5,5)]
-        # 우리는 만들어진 튜플을 파이썬의 (,) unpacking 기능을 이용하여 인덱스와 원소를 각각의 변수에 저장할 것이다.
-        # 리스트를 반복하면서 인덱스를 활용하는 파이썬 스러운 방법이다! So cool!
-        # 라고 잘 적어놨으나 여기서 i 인덱스를 만들어줄 이유가 없어서 일단은.. enumerate() 함수의 원리만 이해하도록 하자 ㅎㅎ;
-
         result = []
-        for i, search_view in enumerate(webtoon_lst, 1):
-            search_view: SearchView  # type hinting
+        for search_view in webtoon_lst:
+            # 검색 결과를 담고 있는 SearchView 객체
+            search_view: SearchView
 
-            title_name = search_view.titleName
-            display_author = search_view.displayAuthor
-            genre_list = search_view.genreList
-            article_total_count = search_view.articleTotalCount
-            last_article_service_date = search_view.lastArticleServiceDate
-            synopsis = search_view.synopsis
+            # SearchView 객체에서 필요한 정보만 가져온다.
+            title_name: str = search_view.titleName  # 웹툰 제목
+            display_author: str = search_view.displayAuthor  # 작가
+            genre_list: List[SearchGenre] = search_view.genreList  # 장르
+            article_total_count: int = search_view.articleTotalCount  # 총 화수
+            last_article_service_date: str = (
+                search_view.lastArticleServiceDate
+            )  # 마지막 업데이트 날짜
+            synopsis: str = search_view.synopsis  # 웹툰 설명
 
             genre_names = [genre.description for genre in genre_list]
 
-            output_str = f'{title_name}\n글/그림 : {display_author} | 장르 : {" / ".join(genre_names)} | 총 {article_total_count}화 | 최종 업데이트 {last_article_service_date}\n{synopsis}'
-            result.append((output_str, search_view.titleId))
+            # 테이블 컬럼 형태로 보여주기 위해 구조화하여 반환한다.
+            result.append(
+                {
+                    "title_name": title_name,
+                    "display_author": display_author,
+                    "genres": " / ".join(genre_names),
+                    "article_total_count": article_total_count,
+                    "last_article_service_date": last_article_service_date,
+                    "synopsis": synopsis,
+                    "title_id": search_view.titleId,
+                }
+            )
 
         return result
 
@@ -106,30 +118,90 @@ class WebtoonSearch:
 
         i = 1
 
-        print("[bold green]-----웹툰 검색결과-----[/bold green]")
-        print(f"[상위 5개] ---- 총 {webtoon_cnt}개")
-        webtoon_result = self.search_api_parser(webtoon, "webtoon")
-        for element in webtoon_result:
-            print(f"[bold red]{i}.[/bold red] {element[0]}")
-            i += 1
+        # Rich 콘솔과 패널/테이블을 이용하여 예쁘게 출력
+        console = Console()
 
-        print("[bold green]-----베스트 도전 검색결과-----[/bold green]")
-        print(f"[상위 5개] ---- 총 {best_challenge_cnt}개")
-        best_challenge_result = self.search_api_parser(webtoon, "bestChallenge")
-        for element in best_challenge_result:
-            print(f"[bold red]{i}.[/bold red] {element[0]}")
-            i += 1
+        # 테이블 렌더링 시작 시 이전 콘솔 내용을 모두 지우기
+        # console.clear()
+        os.system("cls" if os.name == "nt" else "clear")
 
-        print("[bold green]-----도전만화 검색결과-----[/bold green]")
-        print(f"[상위 5개] ---- 총 {challenge_cnt}개")
-        challenge_result = self.search_api_parser(webtoon, "challenge")
-        for element in challenge_result:
-            print(f"[bold red]{i}.[/bold red] {element[0]}")
-            i += 1
+        def render_section(
+            title: str, total_count: int, results: list[dict], start_idx: int
+        ) -> int:
+            """섹션별 결과를 테이블로 렌더링하고 다음 시작 인덱스를 반환한다."""
+            table = Table(
+                show_header=True, header_style="bold cyan", box=ROUNDED, expand=True
+            )
+            table.add_column("No", style="bold magenta", width=4, no_wrap=True)
+            table.add_column(
+                "제목",
+                style="white",
+                no_wrap=False,
+                overflow="fold",
+                min_width=16,
+            )
+            table.add_column(
+                "글/그림",
+                style="white",
+                no_wrap=False,
+                overflow="fold",
+                min_width=10,
+            )
+            table.add_column(
+                "장르",
+                style="white",
+                no_wrap=False,
+                overflow="fold",
+                min_width=18,
+            )
+            table.add_column(
+                "총 화수", style="white", justify="right", width=6, no_wrap=True
+            )
+            table.add_column("최종 업데이트", style="white", width=12, no_wrap=True)
+
+            idx = start_idx
+            for element in results:
+                # element 는 search_api_parser 에서 구조화한 dict
+                table.add_row(
+                    f"{idx}",
+                    element["title_name"],
+                    element["display_author"],
+                    (element["genres"] if element["genres"] else "-"),
+                    f"{element['article_total_count']}",
+                    element["last_article_service_date"],
+                )
+                idx += 1
+
+            panel = Panel(
+                table,
+                title=f"[bold green]{title}[/bold green]",
+                subtitle=f"[dim]상위 5개 · 총 {total_count}개[/dim]",
+                border_style="green",
+                padding=(1, 2),
+                expand=True,
+            )
+            # 섹션 간 가독성을 위해 한 줄 띄어쓰기
+            console.print()
+            console.print(panel)
+            return idx
+
+        # 결과 파싱
+        webtoon_result = self.search_api_parser(webtoon, WebtoonType.webtoon)
+        best_challenge_result = self.search_api_parser(
+            webtoon, WebtoonType.bestChallenge
+        )
+        challenge_result = self.search_api_parser(webtoon, WebtoonType.challenge)
+
+        # 섹션 별 출력 (인덱스 증가 유지)
+        i = render_section("웹툰 검색결과", webtoon_cnt, webtoon_result, i)
+        i = render_section(
+            "베스트 도전 검색결과", best_challenge_cnt, best_challenge_result, i
+        )
+        i = render_section("도전만화 검색결과", challenge_cnt, challenge_result, i)
 
         all_result = (
             webtoon_result + best_challenge_result + challenge_result
-        )  # use list comprehension
+        )  # list comprehension 사용
 
         msg = ">>> 선택할 웹툰의 번호를 입력해주세요 : "
         while True:
@@ -145,7 +217,7 @@ class WebtoonSearch:
 
         # 위의 반복문을 탈출했다는 것은 정상적인 범위의 숫자를 입력했음을 의미.
 
-        title_id = str(all_result[index - 1][1])
+        title_id = str(all_result[index - 1]["title_id"])
         # print(f'선택한 웹툰의 title_id : {title_id}')
         return title_id
 

@@ -20,7 +20,7 @@ from module.title_changer import change_title
 
 
 async def main() -> None:
-    # 윈도우 인 경우 콘솔 타이틀 변경
+    # 윈도우에서 실행한 경우 콘솔 타이틀 변경
     change_title()
 
     # 세팅 파일 없으면 자동 생성 & 값 읽기
