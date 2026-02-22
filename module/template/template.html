@@ -29,7 +29,7 @@
         transform: translateY(-50%);
       }
 
-      #remoteheader {
+      #remote_header {
         padding: 10px;
         cursor: move;
         z-index: 10;
@@ -43,7 +43,7 @@
     <!-- Draggable DIV -->
     <div id="remote">
       <!-- Include a header DIV with the same name as the draggable DIV, followed by "header" -->
-      <div id="remoteheader">리모콘</div>
+      <div id="remote_header">리모콘</div>
       <p>{{title}}</p>
       <p>{{episode}}</p>
       <a href="{{prev}}">이전화</a>
@@ -68,46 +68,43 @@
       // Make the DIV element draggable:
       set_drag_element(document.getElementById("remote"));
 
-      function set_drag_element(element) {
-        var pos1 = 0,
-          pos2 = 0,
-          pos3 = 0,
-          pos4 = 0;
-        if (document.getElementById(element.id + "header")) {
-          // if present, the header is where you move the DIV from:
-          document.getElementById(element.id + "header").onmousedown =
-            dragMouseDown;
-        } else {
-          // otherwise, move the DIV from anywhere inside the DIV:
-          element.onmousedown = dragMouseDown;
+      function set_drag_element(draggable_element) {
+        let delta_x = 0;
+        let delta_y = 0;
+        let start_x = 0;
+        let start_y = 0;
+        const header_element = document.getElementById(
+          `${draggable_element.id}_header`
+        );
+        const drag_start_target = header_element ?? draggable_element;
+
+        drag_start_target.onmousedown = start_drag;
+
+        function start_drag(event) {
+          const mouse_event = event || window.event;
+          mouse_event.preventDefault();
+          start_x = mouse_event.clientX;
+          start_y = mouse_event.clientY;
+          document.onmouseup = stop_drag;
+          document.onmousemove = handle_drag;
         }
 
-        function dragMouseDown(e) {
-          e = e || window.event;
-          e.preventDefault();
-          // get the mouse cursor position at startup:
-          pos3 = e.clientX;
-          pos4 = e.clientY;
-          document.onmouseup = closeDragElement;
-          // call a function whenever the cursor moves:
-          document.onmousemove = elementDrag;
+        function handle_drag(event) {
+          const mouse_event = event || window.event;
+          mouse_event.preventDefault();
+          delta_x = start_x - mouse_event.clientX;
+          delta_y = start_y - mouse_event.clientY;
+          start_x = mouse_event.clientX;
+          start_y = mouse_event.clientY;
+          draggable_element.style.top = `${
+            draggable_element.offsetTop - delta_y
+          }px`;
+          draggable_element.style.left = `${
+            draggable_element.offsetLeft - delta_x
+          }px`;
         }
 
-        function elementDrag(e) {
-          e = e || window.event;
-          e.preventDefault();
-          // calculate the new cursor position:
-          pos1 = pos3 - e.clientX;
-          pos2 = pos4 - e.clientY;
-          pos3 = e.clientX;
-          pos4 = e.clientY;
-          // set the element's new position:
-          element.style.top = element.offsetTop - pos2 + "px";
-          element.style.left = element.offsetLeft - pos1 + "px";
-        }
-
-        function closeDragElement() {
-          // stop moving when mouse button is released:
+        function stop_drag() {
           document.onmouseup = null;
           document.onmousemove = null;
         }
