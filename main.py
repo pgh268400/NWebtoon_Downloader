@@ -122,7 +122,7 @@ async def main() -> None:
                         map(int, dialog.split("-"))
                     )  # "1-2" -> [1,2]
                     start, end = download_number_lst
-                    await downloader.download(start, end)
+                    await downloader.download(start=start, end=end)
                     input("다운로드가 완료되었습니다.")
             elif dialog.lower() == "m":
                 path = input("병합할 웹툰 경로를 입력해주세요 : ")
@@ -131,6 +131,7 @@ async def main() -> None:
                 image.run()
                 input("작업이 완료되었습니다.")
             elif dialog.lower() == "h":
+                # 아직 해당 기능은 미구현 상태
                 print(
                     "히든 기능 발견! 해당 기능은 아직 개발중입니다. 버그 발생해도 책임지지 않습니다."
                 )
